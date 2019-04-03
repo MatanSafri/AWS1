@@ -11,7 +11,9 @@ public class localApp {
 		//s3Service s3 = new s3Service();
 		ec2Service ec2 = new ec2Service();
 		//ec2.createTagsToInstance("i-02ce5424d8433ea75", "type", "manager");
-		ec2.stopInstance("i-02ce5424d8433ea75");
+		//ec2.stopInstance("i-02ce5424d8433ea75");
+		
+		System.out.println(ec2.getInstances());
 		//ec2.createInstance();
 		//s3.saveFile("C:\\Users\\Matan Safri\\Documents\\University\\Semester8\\AWS\\1\\AWS1\\README.md");
 //		try {

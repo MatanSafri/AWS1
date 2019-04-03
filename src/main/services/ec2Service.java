@@ -9,8 +9,11 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.CreateTagsRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.InstanceType;
+import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.StopInstancesRequest;
 import com.amazonaws.services.ec2.model.Tag;
@@ -65,4 +68,31 @@ public class ec2Service {
 		            createTagsRequest.withResources(instanceId);
 		            amazonEc2.createTags(createTagsRequest);
 	}
+	
+	public Collection<Instance> getInstances()
+	{
+		Collection<Instance> instances = new ArrayList<Instance>();
+		boolean done = false;
+		
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+		while(!done) 
+		{
+		    DescribeInstancesResult response = amazonEc2.describeInstances(request);
+	
+		    for(Reservation reservation : response.getReservations())
+		    {
+		        for(Instance instance : reservation.getInstances()) {
+		           instances.add(instance);
+		        }
+		    }
+	
+		    request.setNextToken(response.getNextToken());
+	
+		    if(response.getNextToken() == null) {
+		        done = true;
+		    }
+		}
+		return instances;
+	}
+		
 }
