@@ -18,6 +18,8 @@ public class s3Service implements IfileSystem {
 	
 	private AmazonS3  amazonS3; 
 	
+	final String bucketName = "matanandshirbucket";
+	
 	public s3Service()
 	{
 		 AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
@@ -26,18 +28,24 @@ public class s3Service implements IfileSystem {
 				    .withCredentials(credentialsProvider)
 				    .build();
 	}
+	
+	
+	public void deleteFile(String fileKey)
+	{
+		amazonS3.deleteObject(bucketName,fileKey);
+	}
 
 	
 	public InputStream getFile(String fileKey) {
-		 S3Object object = amazonS3.getObject(new GetObjectRequest("matanandshirbucket", fileKey));
+		 S3Object object = amazonS3.getObject(new GetObjectRequest(bucketName, fileKey));
 		return object.getObjectContent();
 	}
 
 	
 	public void saveFile(String path) {
 		 File file = new File(path);
-		 String key = file.getName().replace('\\', '_').replace('/','_').replace(':', '_');
-		 PutObjectRequest req = new PutObjectRequest("matanandshirbucket", key, file);
+		 String key = "ass1/" +  file.getName().replace('\\', '_').replace('/','_').replace(':', '_');
+		 PutObjectRequest req = new PutObjectRequest(bucketName, key, file);
 		 amazonS3.putObject(req);
 	}
 	

@@ -3,17 +3,35 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import com.amazonaws.services.ec2.model.Instance;
+
 import services.ec2Service;
+import services.s3Service;
+import services.sqsService;
 
 public class localApp {
-
+	
+	static ec2Service ec2 = new ec2Service();
+	static sqsService sqs = new sqsService();
 	public static void main(String[] args)  {
-		//s3Service s3 = new s3Service();
-		ec2Service ec2 = new ec2Service();
-		//ec2.createTagsToInstance("i-02ce5424d8433ea75", "type", "manager");
-		//ec2.stopInstance("i-02ce5424d8433ea75");
+		//System.out.println(sqs.createQueue("matanbala"));
+		//sqs.sendMessage(sqs.getUrlByName("MatanAndShirQueue"), "balaaa");
+		//System.out.println(sqs.getMessages(sqs.getUrlByName("MatanAndShirQueue")));
+		sqs.deleteMessage(sqs.getUrlByName("MatanAndShirQueue"), sqs.getMessages(sqs.getUrlByName("MatanAndShirQueue")).get(0));
+		sqs.deleteQueue(sqs.getUrlByName("matanbala"));
 		
-		System.out.println(ec2.getInstances());
+		//s3Service s3 = new s3Service();
+		//s3.deleteFile("README.md");
+		//ec2.createTagsToInstance("i-02ce5424d8433ea75", "type", "manager");
+		//ec2.instanceIsRunning(ec2.getInstance("i-02ce5424d8433ea75"));
+//		if (!isManagerActive())
+//			ec2.runInstance("i-02ce5424d8433ea75");
+//		
+//		System.out.println(isManagerActive());
+//		
+//		ec2.stopInstance("i-02ce5424d8433ea75");
+		
+		//System.out.println(ec2.getInstances());
 		//ec2.createInstance();
 		//s3.saveFile("C:\\Users\\Matan Safri\\Documents\\University\\Semester8\\AWS\\1\\AWS1\\README.md");
 //		try {
@@ -22,6 +40,14 @@ public class localApp {
 //			// TODO Auto-generated catch block
 //			e.printStackTrace();
 //		}
+	}
+	
+	static private boolean isManagerActive()
+	{
+		Iterable<Instance> instances = ec2.getInstancesByTag("type", "manager");
+		if (instances.iterator().hasNext())
+			return ec2.isInstanceRunningOrPending(instances.iterator().next());
+		return false;
 	}
 
 	

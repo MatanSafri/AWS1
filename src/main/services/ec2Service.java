@@ -12,9 +12,11 @@ import com.amazonaws.services.ec2.model.CreateTagsRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.InstanceState;
 import com.amazonaws.services.ec2.model.InstanceType;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
+import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.ec2.model.StopInstancesRequest;
 import com.amazonaws.services.ec2.model.Tag;
 
@@ -49,27 +51,92 @@ public class ec2Service {
         }
 	}
 	
+	public void runInstance(String instanceId)
+	{
+		StartInstancesRequest request = new StartInstancesRequest()
+		    .withInstanceIds(instanceId);
+		
+		amazonEc2.startInstances(request);
+	}
+	
 	public void stopInstance(String instanceId)
 	{
 		StopInstancesRequest request = new StopInstancesRequest()
 			    .withInstanceIds(instanceId);
 		amazonEc2.stopInstances(request);
 	}
+
 	
 	public void createTagsToInstance(String instanceId,String key,String value)
 	{
 		Collection<Tag> tags = new ArrayList<Tag>();
 		Tag t = new Tag();
-		            t.setKey(key);
-		            t.setValue(value);
-		            tags.add(t);
-		            CreateTagsRequest createTagsRequest = new CreateTagsRequest();  
-		            createTagsRequest.withTags(tags);
-		            createTagsRequest.withResources(instanceId);
-		            amazonEc2.createTags(createTagsRequest);
+        t.setKey(key);
+        t.setValue(value);
+        tags.add(t);
+        CreateTagsRequest createTagsRequest = new CreateTagsRequest();  
+        createTagsRequest.withTags(tags);
+        createTagsRequest.withResources(instanceId);
+        amazonEc2.createTags(createTagsRequest);
 	}
 	
-	public Collection<Instance> getInstances()
+	public Collection<Instance> getInstancesByTag(String key,String value)
+	{
+		Collection<Instance> instances = new ArrayList<Instance>();
+		boolean done = false;
+		
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+		while(!done) 
+		{
+		    DescribeInstancesResult response = amazonEc2.describeInstances(request);
+	
+		    for(Reservation reservation : response.getReservations())
+		    {
+		        for(Instance instance : reservation.getInstances()) {
+		        	for (Tag tag : instance.getTags())
+		        	{
+		        		if(tag.getKey().equals(key) && tag.getValue().equals(value))
+		        			instances.add(instance);
+		        	}
+		        }
+		    }
+	
+		    request.setNextToken(response.getNextToken());
+	
+		    if(response.getNextToken() == null) {
+		        done = true;
+		    }
+		}
+		return instances;
+	}
+	
+	public Instance getInstanceById(String instanceId)
+	{
+		boolean done = false;
+		
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+		while(!done) 
+		{
+		    DescribeInstancesResult response = amazonEc2.describeInstances(request);
+	
+		    for(Reservation reservation : response.getReservations())
+		    {
+		        for(Instance instance : reservation.getInstances()) {
+		           if(instance.getInstanceId().equals(instanceId))   	 
+		        	   return instance;
+		        }
+		    }
+	
+		    request.setNextToken(response.getNextToken());
+	
+		    if(response.getNextToken() == null) {
+		        done = true;
+		    }
+		}
+		return null;
+	}
+	
+	public Collection<Instance> getAllInstances()
 	{
 		Collection<Instance> instances = new ArrayList<Instance>();
 		boolean done = false;
@@ -93,6 +160,12 @@ public class ec2Service {
 		    }
 		}
 		return instances;
+	}
+	
+	public boolean isInstanceRunningOrPending(Instance instance)
+	{
+		return instance.getState().getName().toLowerCase().equals("running") || 
+				instance.getState().getName().toLowerCase().equals("pending");
 	}
 		
 }
