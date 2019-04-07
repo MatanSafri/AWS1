@@ -3,29 +3,40 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import javax.jms.JMSException;
+import javax.jms.TextMessage;
+
 import com.amazonaws.services.ec2.model.Instance;
 
 import services.ec2Service;
 import services.s3Service;
+import services.sqsJmsService;
 import services.sqsService;
 
 public class localApp {
 	
 	static ec2Service ec2 = new ec2Service();
 	static sqsService sqs = new sqsService();
+	static s3Service s3 = new s3Service();
+	static sqsJmsService sqsJms;
 	public static void main(String[] args)  {
+	
 		//System.out.println(sqs.createQueue("matanbala"));
 		//sqs.sendMessage(sqs.getUrlByName("MatanAndShirQueue"), "balaaa");
 		//System.out.println(sqs.getMessages(sqs.getUrlByName("MatanAndShirQueue")));
-		sqs.deleteMessage(sqs.getUrlByName("MatanAndShirQueue"), sqs.getMessages(sqs.getUrlByName("MatanAndShirQueue")).get(0));
-		sqs.deleteQueue(sqs.getUrlByName("matanbala"));
 		
 		//s3Service s3 = new s3Service();
 		//s3.deleteFile("README.md");
 		//ec2.createTagsToInstance("i-02ce5424d8433ea75", "type", "manager");
 		//ec2.instanceIsRunning(ec2.getInstance("i-02ce5424d8433ea75"));
-//		if (!isManagerActive())
-//			ec2.runInstance("i-02ce5424d8433ea75");
+		
+		if (!isManagerActive())
+			ec2.runInstance("i-02ce5424d8433ea75");
+		
+		// TODO : change the path of the file to user input 
+		String path = s3.saveFile("C:\\Users\\Matan Safri\\Documents\\University\\Semester8\\AWS\\1\\AWS1\\README.md");
+		sqs.sendMessage(sqs.getUrlByName("MatanAndShirQueue"), path);
+//		
 //		
 //		System.out.println(isManagerActive());
 //		

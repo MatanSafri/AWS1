@@ -42,11 +42,12 @@ public class s3Service implements IfileSystem {
 	}
 
 	
-	public void saveFile(String path) {
+	public String saveFile(String path) {
 		 File file = new File(path);
 		 String key = "ass1/" +  file.getName().replace('\\', '_').replace('/','_').replace(':', '_');
 		 PutObjectRequest req = new PutObjectRequest(bucketName, key, file);
 		 amazonS3.putObject(req);
+		 return key;
 	}
 	
 	

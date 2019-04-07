@@ -26,6 +26,8 @@ public class sqsService {
                 .withCredentials(credentialsProvider)
                 .withRegion("us-east-2")
                 .build();
+  
+        
 	}
 	
 	public String createQueue(String queueName)
