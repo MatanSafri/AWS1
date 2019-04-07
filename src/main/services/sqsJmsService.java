@@ -36,10 +36,11 @@ public class sqsJmsService {
 		 
 
 		connection = connectionFactory.createConnection();
+		
 	
 	}
 	
-	public void createQueue(String queueName) throws JMSException
+	public boolean createQueue(String queueName) throws JMSException
 	{
 		// Get the wrapped client
 		AmazonSQSMessagingClientWrapper client = connection.getWrappedAmazonSQSClient();
@@ -47,7 +48,10 @@ public class sqsJmsService {
 		// Create an SQS queue named MyQueue, if it doesn't already exist
 		if (!client.queueExists(queueName)) {
 		    client.createQueue(queueName);
+		    return true;
 		}
+		
+		return false;
 	}
 	
 	
@@ -58,7 +62,6 @@ public class sqsJmsService {
 		
 		// Create a queue identity and specify the queue name to the session
 		Queue queue = session.createQueue(queueName);
-		 
 		// Create a producer for the 'MyQueue'
 		MessageProducer producer = session.createProducer(queue);
 		
@@ -116,5 +119,4 @@ public class sqsJmsService {
 		// Start receiving incoming messages.
 		connection.start();
 	}
-
 }

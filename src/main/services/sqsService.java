@@ -1,6 +1,7 @@
 package services;
 
 import java.util.List;
+import java.util.Map;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -10,6 +11,7 @@ import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.CreateQueueRequest;
 import com.amazonaws.services.sqs.model.DeleteMessageRequest;
 import com.amazonaws.services.sqs.model.DeleteQueueRequest;
+import com.amazonaws.services.sqs.model.GetQueueAttributesRequest;
 import com.amazonaws.services.sqs.model.ListQueuesRequest;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
@@ -32,7 +34,7 @@ public class sqsService {
 	
 	public String createQueue(String queueName)
 	{
-		CreateQueueRequest createQueueRequest = new CreateQueueRequest(queueName);
+	   CreateQueueRequest createQueueRequest = new CreateQueueRequest(queueName);
        return  sqs.createQueue(createQueueRequest).getQueueUrl();
 	}
 	
@@ -61,6 +63,15 @@ public class sqsService {
 	public void deleteQueue(String queueUrl)
 	{
 		sqs.deleteQueue(new DeleteQueueRequest(queueUrl));
+	}
+	
+	public int getQueueMessageCount(String queueName)
+	{
+		String attr = "ApproximateNumberOfMessages";
+		Map<String, String> attributes = sqs.getQueueAttributes(
+				new GetQueueAttributesRequest(getUrlByName(queueName)).withAttributeNames(attr)).getAttributes();
+		return Integer.parseInt(attributes.get(attr));
+
 	}
 
 }
