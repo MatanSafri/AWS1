@@ -4,9 +4,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.jms.JMSException;
+import javax.jms.Message;
 import javax.jms.TextMessage;
 
 import com.amazonaws.services.ec2.model.Instance;
@@ -19,7 +22,7 @@ import services.sqsService;
 public class localApp {
 	
 	static ec2Service ec2 = new ec2Service();
-	//static sqsService sqs = new sqsService();
+	static sqsService sqs = new sqsService();
 	static s3Service s3 = new s3Service();
 	static sqsJmsService sqsJms;
 	static final String managerQueueName = "MatanAndShirQueueManager";
@@ -52,7 +55,10 @@ public class localApp {
 			// TODO : change the path of the file to user input 
 			//String path = s3.saveFile("C:\\Users\\Matan Safri\\Documents\\University\\Semester8\\AWS\\1\\AWS1\\README.md");
 			String path = s3.saveFile("README.md");
-			sqsJms.sendMessage("MatanAndShirQueue", path);
+			Map<String,String> properties = new HashMap<String,String>();
+			properties.put("header", "new task");
+			properties.put("localApp", localQueueName);
+			sqsJms.sendMessage(managerQueueName, path,properties);
 			
 			// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
 		} catch (JMSException e1) {

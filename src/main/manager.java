@@ -3,6 +3,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.jms.JMSException;
 import javax.jms.TextMessage;
@@ -23,6 +25,7 @@ public class manager {
 	static final String workersQueueName = "MatanAndShirQueueWorkers";
 	static final String managerQueueName = "MatanAndShirQueueManager";
 	static final int n = 10;
+	static Map<String,Integer> applicationTask = new HashMap<String, Integer>();
 	
 	public static void main(String[] args)  {
 		try {
@@ -33,7 +36,6 @@ public class manager {
 				String fileKey = ((TextMessage)message).getText();
 				// download the file from s3 and handle 
 				handleFile(s3.getFile(fileKey));	
-				startWorkers();
 				
 				// TODO: handle terminate command
 				
@@ -55,34 +57,49 @@ public class manager {
 	}
 	
 	private static void handleFile(InputStream input) throws IOException, JMSException {
-		// create the workers queue if not exists
+		
+		// create the workers queue if not exists 
 		sqsJms.createQueue(workersQueueName);
+		
+		int activeWorkersNum = getActiveWorkers().size();
+		
+		int lines = 0;
 		
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
         while (true) {
             String line = reader.readLine();
             if (line == null) break;
+            
+            lines++;
+            if (lines - (activeWorkersNum * n) > 0)
+            {
+            	// create and start worker instance
+    			ec2.createTagsToInstance(ec2.createAndRunInstance(), "type", "worker");
+    			activeWorkersNum ++;
+            }
+            
             // for each line send to workers queue a message
-            sqsJms.sendMessage(workersQueueName, line);
+            Map<String,String> properties = new HashMap<String,String>();
+			properties.put("header", "new PDF task");
+            sqsJms.sendMessage(workersQueueName, line,properties);
             
         }
-        System.out.println();
     }
 	
-	private static void startWorkers()
-	{
-		int workersQueueMessageCount = sqs.getQueueMessageCount(workersQueueName);
-		int activeWorkersNum = getActiveWorkers().size();
-		
-		// Divide  rounding up
-		int newWorkersNum = ((workersQueueMessageCount+n-1)/n) - activeWorkersNum;
-
-		for (int i = 0;i < newWorkersNum; i++)
-		{
-			// create and start worker instance
-			ec2.createTagsToInstance(ec2.createAndRunInstance(), "type", "worker");
-		}
-	}
+//	private static void startWorkers()
+//	{
+//		int workersQueueMessageCount = sqs.getQueueMessageCount(workersQueueName);
+//		int activeWorkersNum = getActiveWorkers().size();
+//		
+//		// Divide  rounding up
+//		int newWorkersNum = ((workersQueueMessageCount+n-1)/n) - activeWorkersNum;
+//
+//		for (int i = 0;i < newWorkersNum; i++)
+//		{
+//			// create and start worker instance
+//			ec2.createTagsToInstance(ec2.createAndRunInstance(), "type", "worker");
+//		}
+//	}
 	
 	private static Collection<Instance> getActiveWorkers()
 	{

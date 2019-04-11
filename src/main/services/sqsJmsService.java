@@ -1,8 +1,10 @@
 package services;
 
+import java.util.Map;
 import java.util.function.Consumer;
 
 import javax.jms.JMSException;
+import javax.jms.MapMessage;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageListener;
@@ -55,7 +57,7 @@ public class sqsJmsService {
 	}
 	
 	
-	public void sendMessage(String queueName,String message) throws JMSException
+	public void sendMessage(String queueName,String message,Map<String,String> properties) throws JMSException
 	{
 		// Create the nontransacted session with AUTO_ACKNOWLEDGE mode
 		Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
@@ -67,10 +69,21 @@ public class sqsJmsService {
 		
 		// Create the text message
 		TextMessage textMessage = session.createTextMessage(message);
+		
+		properties.forEach((propertykey,propertyValue) ->
+		{
+			try {
+				textMessage.setStringProperty(propertykey, propertyValue);
+			} catch (JMSException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		});
+			
 		 
 		// Send the message
 		producer.send(textMessage);
-		System.out.println("JMS Message " + textMessage.getJMSMessageID());
+		System.out.println("send JMS Message " + textMessage.getJMSMessageID());
 	}
 	
 	public Message getMessagesSync(String queueName) throws JMSException
