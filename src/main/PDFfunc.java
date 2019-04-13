@@ -69,8 +69,7 @@ public class PDFfunc{
 	public static void main(String[] args) throws IOException  {
 		//PDDocument pdf = PDDocument.load(new File("C:\\Users\\shirciv\\Desktop\\aws\\git\\AWS1\\src\\main\\FIRST.pdf"));
 		
-		PDDocument pdf = PDDocument.load(new URL("http://www.thebagelemporium.com/images/BE-Holiday-Menu.pdf"));
-			
+		PDDocument pdf = PDDocument.load(new URL("http://www.thebagelemporium.com/images/BE-Holiday-Menu.pdf"));	
 		System.out.println(pdf2Image(pdf,"FIRST"));
 		
 	}
