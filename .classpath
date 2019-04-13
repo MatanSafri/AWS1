@@ -25,5 +25,7 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="C:/Users/shirciv/Desktop/aws/git/AWS1/src/main/fontbox-1.8.13.jar"/>
+	<classpathentry kind="lib" path="C:/Users/shirciv/Desktop/aws/git/AWS1/src/main/pdfbox-1.8.13.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>
