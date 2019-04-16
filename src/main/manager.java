@@ -1,7 +1,6 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,15 +10,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.TextMessage;
 
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.simpleworkflow.model.TaskList;
 
 import services.ec2Service;
 import services.s3Service;
@@ -46,6 +41,9 @@ public class manager {
 			// get active workers
 			activeWorkersNum = getActiveWorkers().size();
 			
+			// create the workers queue if not exists 
+			sqsJms.createQueue(workersQueueName);
+			
 			sqsJms = new sqsJmsService();	
 			sqsJms.getMessagesAsync(managerQueueName, (message)->{
 			// handle message in a different thread 
@@ -67,7 +65,9 @@ public class manager {
 					handleMessage(message);
 				}
 				else 
+				{
 					break;
+				}
 				
 			}while(true);
 			
@@ -101,7 +101,7 @@ public class manager {
 			    // terminate the manager if terminate requested and no more tasks left
 			    if (terminate && applicationTasks.size() == 0)
 			    {
-			    	sqsJms.cancelMessageAsync();
+			    	sqsJms.closeConnection();
 			    	String managerInstanceId = getManagerInstanceId();
 			    	if (managerInstanceId != null)
 			    		ec2.terminateInstance(managerInstanceId);
@@ -189,9 +189,6 @@ public class manager {
 	
 	private static void handleNewFile(InputStream input,String localAppId,int n) throws IOException, JMSException {
 		
-		// create the workers queue if not exists 
-		sqsJms.createQueue(workersQueueName);
-		
 		//int activeWorkersNum = getActiveWorkers().size();
 		
 		int lines = 0;
@@ -207,7 +204,7 @@ public class manager {
 	            if (lines - (activeWorkersNum * n) > 0)
 	            {
 	            	// create and start worker instance
-	    			ec2.createTagsToInstance(ec2.createAndRunInstance(), "type", "worker");
+	    			ec2.createTagsToInstance(ec2.createAndRunInstance("ec2AdminRole",ec2.runJarOnEc2Script("worker")), "type", "worker");
 	    			activeWorkersNum++;
 	            }
             }

@@ -17,9 +17,8 @@ public class worker {
 	
 	public static void main(String[] args)  {
 		try {
-			sqsJms.getMessagesAsync(workersQueueName, (message) -> {
-				
-			});
+			sqsJms = new sqsJmsService();
+			sqsJms.sendMessage(managerQueueName, "bala", null);
 		} catch (JMSException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

@@ -2,9 +2,7 @@ package services;
 
 import java.util.Map;
 import java.util.function.Consumer;
-
 import javax.jms.JMSException;
-import javax.jms.MapMessage;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageListener;
@@ -12,7 +10,6 @@ import javax.jms.MessageProducer;
 import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
-
 import com.amazon.sqs.javamessaging.AmazonSQSMessagingClientWrapper;
 import com.amazon.sqs.javamessaging.ProviderConfiguration;
 import com.amazon.sqs.javamessaging.SQSConnection;
@@ -105,7 +102,8 @@ public class sqsJmsService {
 		// Receive a message from queue and wait up to 1 second
 		Message receivedMessage = consumer.receive(1000);
 		
-		connection.close();
+		session.close();
+		//connection.close();
 		
 		return receivedMessage;
 	}
@@ -136,10 +134,8 @@ public class sqsJmsService {
 		connection.start();
 	}
 	
-	public void cancelMessageAsync() throws JMSException
+	public void closeConnection() throws JMSException
 	{
 		connection.close();
 	}
 }
-
-

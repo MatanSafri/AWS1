@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import javax.jms.JMSException;
-import javax.jms.Message;
 import javax.jms.TextMessage;
 
 import com.amazonaws.services.ec2.model.Instance;
@@ -60,7 +59,7 @@ public class localApp {
 					
 					// delete the queue 
 					sqs.deleteQueue(sqs.getUrlByName(localAppId));
-					sqsJms.cancelMessageAsync();
+					sqsJms.closeConnection();
 					return;
 					
 				} catch (JMSException e) {
@@ -92,7 +91,7 @@ public class localApp {
 		}
 	}
 	
-	static private void activateManager() throws JMSException
+	private static void activateManager() throws JMSException
 	{
 		
 		Iterable<Instance> instances = ec2.getInstancesByTag("type", "manager");
@@ -100,14 +99,18 @@ public class localApp {
 		if (instances.iterator().hasNext())
 		{
 			Instance instance= instances.iterator().next();
-			if(!ec2.isInstanceRunningOrPending(instance))
-				ec2.runInstance(instance.getInstanceId());
+			if(!ec2.isRunning(instance))
+			{
+				if (ec2.isTerminate(instance))
+					createManagerInstance();
+				else
+					ec2.runInstance(instance.getInstanceId());
+			}
 		}
 		// create the manager instance
 		else
 		{
-			String managerInstanceId = ec2.createAndRunInstance();
-			ec2.createTagsToInstance(managerInstanceId, "type", "manager");
+			createManagerInstance();
 		}
 	}
 
@@ -115,6 +118,12 @@ public class localApp {
 		//Path path = Paths.get(System.getProperty("user.dir"));
 		Path path = Paths.get(fileName);
 		Files.copy(inputStream, path, StandardCopyOption.REPLACE_EXISTING);
+	}
+	
+	private static void createManagerInstance()
+	{
+		String managerInstanceId = ec2.createAndRunInstance("ec2AdminRole",ec2.runJarOnEc2Script("manager"));
+		ec2.createTagsToInstance(managerInstanceId, "type", "manager");
 	}
 }
 
