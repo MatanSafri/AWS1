@@ -19,6 +19,7 @@ import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.ec2.model.StopInstancesRequest;
 import com.amazonaws.services.ec2.model.Tag;
+import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
 
 public class ec2Service {
 	
@@ -64,6 +65,12 @@ public class ec2Service {
 		StopInstancesRequest request = new StopInstancesRequest()
 			    .withInstanceIds(instanceId);
 		amazonEc2.stopInstances(request);
+	}
+	
+	public void terminateInstance(String instanceId)
+	{
+		TerminateInstancesRequest request = new TerminateInstancesRequest().withInstanceIds(instanceId);
+		amazonEc2.terminateInstances(request);
 	}
 
 	

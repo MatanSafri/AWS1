@@ -44,6 +44,16 @@ public class s3Service implements IfileSystem {
 	
 	public String saveFile(String path) {
 		 File file = new File(path);
+		 return save(file);
+	}
+	
+	public String saveFile(File file) {
+		
+		 return save(file);
+	}
+	
+	private String save(File file)
+	{
 		 String key = "ass1/" +  file.getName().replace('\\', '_').replace('/','_').replace(':', '_');
 		 PutObjectRequest req = new PutObjectRequest(bucketName, key, file);
 		 amazonS3.putObject(req);

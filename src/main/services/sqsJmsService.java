@@ -70,15 +70,18 @@ public class sqsJmsService {
 		// Create the text message
 		TextMessage textMessage = session.createTextMessage(message);
 		
-		properties.forEach((propertykey,propertyValue) ->
+		if (properties != null)
 		{
-			try {
-				textMessage.setStringProperty(propertykey, propertyValue);
-			} catch (JMSException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		});
+			properties.forEach((propertykey,propertyValue) ->
+			{
+				try {
+					textMessage.setStringProperty(propertykey, propertyValue);
+				} catch (JMSException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			});
+		}
 			
 		 
 		// Send the message
@@ -132,4 +135,11 @@ public class sqsJmsService {
 		// Start receiving incoming messages.
 		connection.start();
 	}
+	
+	public void cancelMessageAsync() throws JMSException
+	{
+		connection.close();
+	}
 }
+
+

@@ -26,21 +26,42 @@ public class localApp {
 	static s3Service s3 = new s3Service();
 	static sqsJmsService sqsJms;
 	static final String managerQueueName = "MatanAndShirQueueManager";
+	//static final String localAppQueueName = "MatanAndShirQueueLocalApp";
+	static final Integer n = 10;
 	public static void main(String[] args)  {
+		
+		// get the args
+		String inputFileName = "README.md"; //= args[0];
+		String outputFileName ="bala.txt"; //= args[1];
+		int n = 10; //= Integer.parseInt(args[2]);				
 		
 		// Running the manager if not active 
 		try {
+			
+			sqsJms = new sqsJmsService();
+			// create the manager queue 
+			sqsJms.createQueue(managerQueueName);
+			
 			activateManager();
 			// create a queue and a listener for the current localApplication
-			String localQueueName = UUID.randomUUID().toString();
+			String localAppId = UUID.randomUUID().toString();
 			sqsJms = new sqsJmsService();
-			sqsJms.createQueue(localQueueName);
-			sqsJms.getMessagesAsync(localQueueName, (message) -> {
+			sqsJms.createQueue(localAppId);
+			sqsJms.getMessagesAsync(localAppId, (message) -> {
 				// getting the path to the ready file on s3
 				try {
 					String path = ((TextMessage)message).getText();
+					
+					if (((TextMessage)message).getStringProperty("localAppId") != localAppId)
+						return;
+						
 					InputStream fileStream = s3.getFile(path);
-					saveFile(fileStream);
+					saveFile(fileStream,outputFileName);
+					
+					// delete the queue 
+					sqs.deleteQueue(sqs.getUrlByName(localAppId));
+					sqsJms.cancelMessageAsync();
+					return;
 					
 				} catch (JMSException e) {
 					// TODO Auto-generated catch block
@@ -52,15 +73,19 @@ public class localApp {
 			});
 
 			// upload the file to s3 
-			// TODO : change the path of the file to user input 
-			//String path = s3.saveFile("C:\\Users\\Matan Safri\\Documents\\University\\Semester8\\AWS\\1\\AWS1\\README.md");
-			String path = s3.saveFile("README.md");
+			String path = s3.saveFile(inputFileName);
 			Map<String,String> properties = new HashMap<String,String>();
 			properties.put("header", "new task");
-			properties.put("localApp", localQueueName);
+			properties.put("localAppId", localAppId);
+			properties.put("n", Integer.toString(n) );
 			sqsJms.sendMessage(managerQueueName, path,properties);
 			
 			// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
+			if ((args.length == 4 && args[4] == "terminate"))
+			{
+				properties.put("header", "terminate");
+				sqsJms.sendMessage(managerQueueName, "",properties);
+			}
 		} catch (JMSException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -69,21 +94,26 @@ public class localApp {
 	
 	static private void activateManager() throws JMSException
 	{
-		// create the manager instance if not exists already 
-		if (sqsJms.createQueue(managerQueueName))
-			return;
-		// run the manager if needed
+		
 		Iterable<Instance> instances = ec2.getInstancesByTag("type", "manager");
+		// run the manager if needed
 		if (instances.iterator().hasNext())
 		{
 			Instance instance= instances.iterator().next();
 			if(!ec2.isInstanceRunningOrPending(instance))
 				ec2.runInstance(instance.getInstanceId());
 		}
+		// create the manager instance
+		else
+		{
+			String managerInstanceId = ec2.createAndRunInstance();
+			ec2.createTagsToInstance(managerInstanceId, "type", "manager");
+		}
 	}
 
-	private static void saveFile(InputStream inputStream) throws IOException {	
-		Path path = Paths.get(System.getProperty("user.dir"));
+	private static void saveFile(InputStream inputStream,String fileName) throws IOException {
+		//Path path = Paths.get(System.getProperty("user.dir"));
+		Path path = Paths.get(fileName);
 		Files.copy(inputStream, path, StandardCopyOption.REPLACE_EXISTING);
 	}
 }
