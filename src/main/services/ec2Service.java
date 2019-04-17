@@ -38,9 +38,29 @@ public class ec2Service {
 	
 	public String runJarOnEc2Script(String jarName)
 	{
-		  String script =String.format( "#!/bin/bash -ex" + "\n"
-	                + "aws s3 cp s3://matanandshirjarsbucket/%s.jar %s.jar" + "\n"
-	                + "java -jar %s.jar\n",jarName,jarName,jarName);
+//		  String script =String.format( "#!/bin/bash" + "\n" 
+//				  	+ "wget --no-check-certificate --no-cookies --header \"Cookie: oraclelicense=accept-securebackup-cookie\" http://download.oracle.com/otn-pub/java/jdk/8u141-b15/336fa29ff2bb4ef291e347e091f7f4a7/jdk-8u141-linux-x64.rp" + "\n"
+//				  	+ "sudo yum install -y jdk-8u141-linux-x64.rpm" + "\n"
+//				  	+ "sudo yum install java-1.8.0" + "\n" 
+//				  	+ "sudo alternatives --config java" + "\n"
+//	                + "aws s3 cp s3://matanandshirjarsbucket/%s.jar %s.jar" + "\n"
+//	                + "java -jar %s.jar\n",jarName,jarName,jarName);
+		
+		 String script =  "#!/bin/bash -ex" + "\n"
+				 	+ "$ cd /opt" + "\n"
+				 	+ "wget --no-cookies --no-check-certificate --header \"Cookie: gpw_e24=http%3a%2F%2Fwww.oracle.com%2Ftechnetwork%2Fjava%2Fjavase%2Fdownloads%2Fjdk8-downloads-2133151.html; oraclelicense=accept-securebackup-cookie;\" \"https://download.oracle.com/otn-pub/java/jdk/8u191-b12/2787e4a523244c269598db4e85c51e0c/jdk-8u191-linux-x64.tar.gz\"" + "\n" 
+				 	+ "sudo tar xzf jdk-8u191-linux-x64.tar.gz" + "\n"
+				 	+ "cd jdk1.8.0_191/" + "\n"
+				 	+ "sudo alternatives --install /usr/bin/java java /opt/jdk1.8.0_191/bin/java 2" + "\n"
+				 	+ "sudo alternatives --config java" + "\n" + "\n" 
+				 	+ "sudo alternatives --install /usr/bin/jar jar /opt/jdk1.8.0_191/bin/jar 2" + "\n"
+				 	+ "sudo alternatives --set jar /opt/jdk1.8.0_191/bin/jar" + "\n"
+				 	+ "sudo alternatives --set javac /opt/jdk1.8.0_191/bin/javac" + "\n" 
+				 	+ "export JAVA_HOME=/opt/jdk1.8.0_191" + "\n"
+				 	+ "export JRE_HOME=/opt/jdk1.8.0_191/jre" + "\n"
+				 	+ "export PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin"
+	                + "aws s3 cp s3://matanandshirjarsbucket/manager.jar manager.jar" + "\n"
+	                + "java -jar manager.jar\n";
 		  System.out.println(script);
         String str;
 		try {
