@@ -18,13 +18,13 @@ public class s3Service implements IfileSystem {
 	
 	private AmazonS3  amazonS3; 
 	
-	final String bucketName = "matanandshirbucket";
+	final String bucketName = "ass1filesbucket";
 	
 	public s3Service()
 	{
 		 AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
     	 amazonS3 = AmazonS3Client.builder()
-				    .withRegion("us-east-2")
+				    .withRegion("us-east-1")
 				    .withCredentials(credentialsProvider)
 				    .build();
 	}

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
@@ -29,7 +30,15 @@ public class ec2Service {
 	
 	public ec2Service()
 	{
-		AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
+		AWSCredentials cred =  new ProfileCredentialsProvider().getCredentials();
+		if (cred == null)
+			System.out.println("Error getting credentials");
+		else
+			System.out.println(cred.getAWSAccessKeyId());
+		
+		AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(cred);
+		
+		
 		amazonEc2 = AmazonEC2ClientBuilder.standard()
                 .withCredentials(credentialsProvider)
                 .withRegion("us-east-1")
@@ -46,20 +55,33 @@ public class ec2Service {
 //	                + "aws s3 cp s3://matanandshirjarsbucket/%s.jar %s.jar" + "\n"
 //	                + "java -jar %s.jar\n",jarName,jarName,jarName);
 		
-		 String script =  "#!/bin/bash -ex" + "\n"
-				 	+ "$ cd /opt" + "\n"
-				 	+ "wget --no-cookies --no-check-certificate --header \"Cookie: gpw_e24=http%3a%2F%2Fwww.oracle.com%2Ftechnetwork%2Fjava%2Fjavase%2Fdownloads%2Fjdk8-downloads-2133151.html; oraclelicense=accept-securebackup-cookie;\" \"https://download.oracle.com/otn-pub/java/jdk/8u191-b12/2787e4a523244c269598db4e85c51e0c/jdk-8u191-linux-x64.tar.gz\"" + "\n" 
-				 	+ "sudo tar xzf jdk-8u191-linux-x64.tar.gz" + "\n"
-				 	+ "cd jdk1.8.0_191/" + "\n"
-				 	+ "sudo alternatives --install /usr/bin/java java /opt/jdk1.8.0_191/bin/java 2" + "\n"
-				 	+ "sudo alternatives --config java" + "\n" + "\n" 
-				 	+ "sudo alternatives --install /usr/bin/jar jar /opt/jdk1.8.0_191/bin/jar 2" + "\n"
-				 	+ "sudo alternatives --set jar /opt/jdk1.8.0_191/bin/jar" + "\n"
-				 	+ "sudo alternatives --set javac /opt/jdk1.8.0_191/bin/javac" + "\n" 
-				 	+ "export JAVA_HOME=/opt/jdk1.8.0_191" + "\n"
-				 	+ "export JRE_HOME=/opt/jdk1.8.0_191/jre" + "\n"
-				 	+ "export PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin"
-	                + "aws s3 cp s3://matanandshirjarsbucket/manager.jar manager.jar" + "\n"
+		 String script =  "#!/bin/bash -xe" + "\n"
+				 	+ "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1" + "\n" 
+//				 	+ "cd /opt" + "\n"
+				 	//+ "sudo wget --no-cookies --no-check-certificate --header \"Cookie: %3A%2F%2Fwww.oracle.com%2F; -securebackup-cookie\" http://download.oracle.com/otn-pub/java/jdk/8u151-b12/e758a0de34e24606bca991d704f6dcbf/jdk-8u151-linux-x64.tar.gz\""+ "\n"
+//				 	+ "aws s3 cp s3://ass1jarsbucket/jdk-8u211-linux-x64.tar.gz jdk-8u211-linux-x64.tar.gz --region us-east-1" + "\n"
+//				 	+ "tar xzf jdk-8u211-linux-x64.tar.gz" + "\n"
+//				 	+ "cd jdk1.8.0_211" + "\n"
+//				 	+ "alternatives --install /usr/bin/java java /opt/jdk1.8.0_211/bin/java 2" + "\n"
+//				 	//+ "alternatives --config java" + "\n" + "\n" 
+//				 	+ "alternatives --install /usr/bin/jar jar /opt/jdk1.8.0_211/bin/jar 2" + "\n"
+//				 	+ "alternatives --set jar /opt/jdk1.8.0_211/bin/jar" + "\n"
+//				 	//+ "alternatives --set javac /opt/jdk1.8.0_211/bin/javac" + "\n" 
+//				 	+ "java -version" + "\n"
+//				 	+ "export JAVA_HOME=/opt/jdk1.8.0_211" + "\n"
+//				 	+ "export JRE_HOME=/opt/jdk1.8.0_211/jre" + "\n"
+//				 	+ "export PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin"
+//				 	+ "cd .." + "\n"
+					+ "aws s3 cp s3://ass1jarsbucket/manager.jar manager.jar --region us-east-1" + "\n"
+					//+ "java version" + "\n"
+					+ "yum install java-1.8.0-openjdk-devel -y" + "\n"
+					+ "yum remove java-1.6.0-openjdk -y" + "\n"
+					+ "JAVA_VER=$(java -version 2>&1 | sed -n ';s/.* version \"\\(.*\\)\\.\\(.*\\)\\..*\"/\\1\\2/p;')" + "\n"
+					+ "echo $JAVA_VER" + "\n"
+					
+					//+ "/usr/sbin/alternatives --config java" + "\n"
+					//+ "/usr/sbin/alternatives --config javac" + "\n"
+	               
 	                + "java -jar manager.jar\n";
 		  System.out.println(script);
         String str;
@@ -86,6 +108,7 @@ public class ec2Service {
             {
 	            IamInstanceProfileSpecification instanceRoles = new IamInstanceProfileSpecification();
 	            instanceRoles.setName(iamRoleName);
+	            request.setIamInstanceProfile(instanceRoles);
             }
             
             // set the script
