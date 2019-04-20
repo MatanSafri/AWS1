@@ -30,7 +30,7 @@ public class sqsJmsService {
 		
 		SQSConnectionFactory connectionFactory = new SQSConnectionFactory(
 		        new ProviderConfiguration(),
-		        AmazonSQSClientBuilder.standard().withRegion("us-east-2").withCredentials(credentialsProvider)
+		        AmazonSQSClientBuilder.standard().withRegion("us-east-1").withCredentials(credentialsProvider)
 		        );
 		 
 

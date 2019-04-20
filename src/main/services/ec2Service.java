@@ -47,53 +47,19 @@ public class ec2Service {
 	
 	public String runJarOnEc2Script(String jarName)
 	{
-//		  String script =String.format( "#!/bin/bash" + "\n" 
-//				  	+ "wget --no-check-certificate --no-cookies --header \"Cookie: oraclelicense=accept-securebackup-cookie\" http://download.oracle.com/otn-pub/java/jdk/8u141-b15/336fa29ff2bb4ef291e347e091f7f4a7/jdk-8u141-linux-x64.rp" + "\n"
-//				  	+ "sudo yum install -y jdk-8u141-linux-x64.rpm" + "\n"
-//				  	+ "sudo yum install java-1.8.0" + "\n" 
-//				  	+ "sudo alternatives --config java" + "\n"
-//	                + "aws s3 cp s3://matanandshirjarsbucket/%s.jar %s.jar" + "\n"
-//	                + "java -jar %s.jar\n",jarName,jarName,jarName);
-		
-		 String script =  "#!/bin/bash -xe" + "\n"
+		 String script =  String.format("#!/bin/bash -xe" + "\n"
 				 	+ "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1" + "\n" 
-//				 	+ "cd /opt" + "\n"
-				 	//+ "sudo wget --no-cookies --no-check-certificate --header \"Cookie: %3A%2F%2Fwww.oracle.com%2F; -securebackup-cookie\" http://download.oracle.com/otn-pub/java/jdk/8u151-b12/e758a0de34e24606bca991d704f6dcbf/jdk-8u151-linux-x64.tar.gz\""+ "\n"
-//				 	+ "aws s3 cp s3://ass1jarsbucket/jdk-8u211-linux-x64.tar.gz jdk-8u211-linux-x64.tar.gz --region us-east-1" + "\n"
-//				 	+ "tar xzf jdk-8u211-linux-x64.tar.gz" + "\n"
-//				 	+ "cd jdk1.8.0_211" + "\n"
-//				 	+ "alternatives --install /usr/bin/java java /opt/jdk1.8.0_211/bin/java 2" + "\n"
-//				 	//+ "alternatives --config java" + "\n" + "\n" 
-//				 	+ "alternatives --install /usr/bin/jar jar /opt/jdk1.8.0_211/bin/jar 2" + "\n"
-//				 	+ "alternatives --set jar /opt/jdk1.8.0_211/bin/jar" + "\n"
-//				 	//+ "alternatives --set javac /opt/jdk1.8.0_211/bin/javac" + "\n" 
-//				 	+ "java -version" + "\n"
-//				 	+ "export JAVA_HOME=/opt/jdk1.8.0_211" + "\n"
-//				 	+ "export JRE_HOME=/opt/jdk1.8.0_211/jre" + "\n"
-//				 	+ "export PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin"
-//				 	+ "cd .." + "\n"
-				
-					//+ "java version" + "\n"
 					+ "yum install java-1.8.0-openjdk-devel -y" + "\n"
 					+ "yum remove java-1.6.0-openjdk -y" + "\n"
 					+ "cd ~" + "\n"
 					+ "mkdir .aws" + "\n"
 					+ "cd .aws" + "\n"
 					+ "aws s3 cp s3://ass1jarsbucket/credentials credentials --region us-east-1" + "\n"
-					//+ "cd ../../.." + "\n"
-					//+ "mkdir .aws" + "\n"
-					//+ "cd .aws" + "\n"
-					//+ "aws s3 cp s3://ass1jarsbucket/credentials credentials --region us-east-1" + "\n"
-					+ "cd ../../.." + "\n"
-					
+					+ "cd ../../.." + "\n"	
 					+ "JAVA_VER=$(java -version 2>&1 | sed -n ';s/.* version \"\\(.*\\)\\.\\(.*\\)\\..*\"/\\1\\2/p;')" + "\n"
 					+ "echo $JAVA_VER" + "\n"
-					+ "aws s3 cp s3://ass1jarsbucket/manager.jar manager.jar --region us-east-1" + "\n"
-					
-					
-					//+ "/usr/sbin/alternatives --config javac" + "\n"
-	               
-	                + "java -jar manager.jar\n";
+					+ "aws s3 cp s3://ass1jarsbucket/%s.jar %s.jar --region us-east-1" + "\n"	               
+	                + "java -jar %s.jar\n",jarName,jarName,jarName);
 		  System.out.println(script);
         String str;
 		try {

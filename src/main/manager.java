@@ -10,6 +10,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.TextMessage;
@@ -30,14 +35,16 @@ public class manager {
 	static final String workersQueueName = "MatanAndShirQueueWorkers";
 	static final String managerQueueName = "MatanAndShirQueueManager";
 	
-	static Map<String,Integer> applicationTasks = new HashMap<String, Integer>();
-	static Map<String,File> applicationFiles = new HashMap<String, File>();
+	static ConcurrentHashMap<String,Integer> applicationTasks = new ConcurrentHashMap<String, Integer>();
+	static ConcurrentHashMap<String,File> applicationFiles = new ConcurrentHashMap<String, File>();
 	static int activeWorkersNum;
 	static  boolean terminate = false;
 	
 	public static void main(String[] args)  {
 			
 		try {
+			
+			ExecutorService threadpool = Executors.newFixedThreadPool(8);
 			sqsJms = new sqsJmsService();
 			// get active workers
 			activeWorkersNum = getActiveWorkers().size();
@@ -48,22 +55,23 @@ public class manager {
 			sqsJms = new sqsJmsService();	
 			sqsJms.getMessagesAsync(managerQueueName, (message)->{
 			// handle message in a different thread 
-			new Thread(() ->{	
+				threadpool.execute(() ->{	
 				// read the file key in s3 from message and handle the file
 				handleMessage(message);
 			}
-			).run();
+			);
 			});
 			
 			
 			// for the first time as long as there are messages get them sync
-			Message message;
 			do {
 				// first time get the messages sync
-				message = (sqsJms.getMessagesSync(managerQueueName));
+				final Message message = (sqsJms.getMessagesSync(managerQueueName));
+				
 				if (message != null)
 				{
-					handleMessage(message);
+					threadpool.execute(() ->{
+					handleMessage(message);});
 				}
 				else 
 				{

@@ -25,7 +25,7 @@ public class sqsService {
 		AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
         sqs = AmazonSQSClientBuilder.standard()
                 .withCredentials(credentialsProvider)
-                .withRegion("us-east-2")
+                .withRegion("us-east-1")
                 .build();
   
         
