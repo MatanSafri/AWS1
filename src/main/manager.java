@@ -38,6 +38,7 @@ public class manager {
 	public static void main(String[] args)  {
 			
 		try {
+			sqsJms = new sqsJmsService();
 			// get active workers
 			activeWorkersNum = getActiveWorkers().size();
 			
@@ -69,7 +70,7 @@ public class manager {
 					break;
 				}
 				
-			}while(true);
+			}while(!terminate);
 			
 			
 			

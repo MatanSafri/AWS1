@@ -72,12 +72,24 @@ public class ec2Service {
 //				 	+ "export JRE_HOME=/opt/jdk1.8.0_211/jre" + "\n"
 //				 	+ "export PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin"
 //				 	+ "cd .." + "\n"
-					+ "aws s3 cp s3://ass1jarsbucket/manager.jar manager.jar --region us-east-1" + "\n"
+				
 					//+ "java version" + "\n"
 					+ "yum install java-1.8.0-openjdk-devel -y" + "\n"
 					+ "yum remove java-1.6.0-openjdk -y" + "\n"
+					+ "cd ~" + "\n"
+					+ "mkdir .aws" + "\n"
+					+ "cd .aws" + "\n"
+					+ "aws s3 cp s3://ass1jarsbucket/credentials credentials --region us-east-1" + "\n"
+					//+ "cd ../../.." + "\n"
+					//+ "mkdir .aws" + "\n"
+					//+ "cd .aws" + "\n"
+					//+ "aws s3 cp s3://ass1jarsbucket/credentials credentials --region us-east-1" + "\n"
+					+ "cd ../../.." + "\n"
+					
 					+ "JAVA_VER=$(java -version 2>&1 | sed -n ';s/.* version \"\\(.*\\)\\.\\(.*\\)\\..*\"/\\1\\2/p;')" + "\n"
 					+ "echo $JAVA_VER" + "\n"
+					+ "aws s3 cp s3://ass1jarsbucket/manager.jar manager.jar --region us-east-1" + "\n"
+					
 					
 					//+ "/usr/sbin/alternatives --config java" + "\n"
 					//+ "/usr/sbin/alternatives --config javac" + "\n"
@@ -99,7 +111,7 @@ public class ec2Service {
 	{
 		try {
             // Basic 32-bit Amazon Linux AMI 1.0 (AMI Id:ami-51792c38.)
-            RunInstancesRequest request = new RunInstancesRequest("ami-51792c38", 1, 1);
+            RunInstancesRequest request = new RunInstancesRequest("ami-51792c38", 1, 1).withKeyName("ass1Key");
             request.setInstanceType(InstanceType.T1Micro.toString());
             
             
