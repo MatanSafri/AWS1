@@ -91,7 +91,6 @@ public class ec2Service {
 					+ "aws s3 cp s3://ass1jarsbucket/manager.jar manager.jar --region us-east-1" + "\n"
 					
 					
-					//+ "/usr/sbin/alternatives --config java" + "\n"
 					//+ "/usr/sbin/alternatives --config javac" + "\n"
 	               
 	                + "java -jar manager.jar\n";
