@@ -127,6 +127,12 @@ public class ec2Service {
 		TerminateInstancesRequest request = new TerminateInstancesRequest().withInstanceIds(instanceId);
 		amazonEc2.terminateInstances(request);
 	}
+	
+	public void terminateInstances(Collection<String> instanceIds)
+	{
+		TerminateInstancesRequest request = new TerminateInstancesRequest().withInstanceIds(instanceIds);
+		amazonEc2.terminateInstances(request);
+	}
 
 	
 	public void createTagsToInstance(String instanceId,String key,String value)

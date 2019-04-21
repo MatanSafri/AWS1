@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -35,10 +36,11 @@ public class manager {
 	static final String workersQueueName = "MatanAndShirQueueWorkers";
 	static final String managerQueueName = "MatanAndShirQueueManager";
 	
-	static ConcurrentHashMap<String,Integer> applicationTasks = new ConcurrentHashMap<String, Integer>();
+	static ConcurrentHashMap<String,AtomicInteger> applicationTasks = new ConcurrentHashMap<String, AtomicInteger>();
 	static ConcurrentHashMap<String,File> applicationFiles = new ConcurrentHashMap<String, File>();
 	static int activeWorkersNum;
 	static  boolean terminate = false;
+	static final int maxWorkers = 19;
 	
 	public static void main(String[] args)  {
 		
@@ -112,6 +114,12 @@ public class manager {
 			    {
 			    	sqsJms.closeConnection();
 			    	String managerInstanceId = getManagerInstanceId();
+			    	
+			    	// terminate the workers 
+			    	ec2.terminateInstances(getActiveWorkers().stream().map(instance -> 
+			    		instance.getInstanceId()
+			    	).collect(Collectors.toList()));
+			    	
 			    	if (managerInstanceId != null)
 			    		ec2.terminateInstance(managerInstanceId);
 			    	return;
@@ -142,38 +150,36 @@ public class manager {
 		return null;
 	}
 	
-	private static void updateOutputFile(String taskId,String finishedTask) throws IOException
-	{
-		 //create and update summary file 
-	    String fileName =  UUID.randomUUID().toString();
+	private static void updateOutputFile(String localAppId,String finishedTask) throws IOException
+	{    
+	    File outputFile = applicationFiles.get(localAppId);
 	    
-	    File outputFile = new File(fileName);
-	    
-	    try(FileWriter fw = new FileWriter(outputFile);
-	    	    BufferedWriter bw = new BufferedWriter(fw);
-	    	    PrintWriter out = new PrintWriter(bw))
-    	{
-    	    out.println(finishedTask);
-    	} 
+	    // only one thread of the application can write to the output file in the same time 
+	    synchronized (outputFile) {
+		    try(FileWriter fw = new FileWriter(outputFile);
+		    	    BufferedWriter bw = new BufferedWriter(fw);
+		    	    PrintWriter out = new PrintWriter(bw))
+	    	{
+	    	    out.println(finishedTask);
+	    	} 
+	    }
 	}
 	    //outputFile.createNewFile(); // if file already exists will do nothing 
 
 	
 	private static void handleEndTask(String input,String localAppId) throws IOException, JMSException {
 		// create the output file if not exists  
-	    if (applicationFiles.containsKey(localAppId))
+	    if (!applicationFiles.containsKey(localAppId))
 	    {
 	    	 String fileName =  UUID.randomUUID().toString();
 	    	 File outputFile = new File(fileName);
-	    	 applicationFiles.put(fileName, outputFile);
+	    	 applicationFiles.put(localAppId, outputFile);
 	    	 
 	    }
 	    updateOutputFile(localAppId,input);
 	    
-	    int tasksLeft = applicationTasks.get(localAppId);
-	    
 	    // finish local app mission
-	    if (tasksLeft == 1)
+	    if (applicationTasks.get(localAppId).decrementAndGet() == 0)
 	    {
 	    	applicationTasks.remove(localAppId);
 	    	
@@ -188,11 +194,6 @@ public class manager {
 	    	sqsJms.sendMessage(localAppId, fileLocation, properties);
 	    	
 	    	applicationFiles.remove(localAppId);
-	    }
-	    else
-	    {
-	    	// decrease the tasks left by 1 
-	    	tasksLeft--;
 	    }
 	}
 	
@@ -210,7 +211,7 @@ public class manager {
             lines++;
             synchronized (applicationTasks) 
             {
-	            if (lines - (activeWorkersNum * n) > 0)
+	            if (lines - (activeWorkersNum * n) > 0 && activeWorkersNum <= maxWorkers)
 	            {
 	            	// create and start worker instance
 	    			ec2.createTagsToInstance(ec2.createAndRunInstance("ec2AdminRole",ec2.runJarOnEc2Script("worker")), "type", "worker");
@@ -225,7 +226,7 @@ public class manager {
             sqsJms.sendMessage(workersQueueName, line,properties);
         }
         
-        applicationTasks.put(localAppId, lines);
+        applicationTasks.put(localAppId, new AtomicInteger(lines));
         
     }
 	
