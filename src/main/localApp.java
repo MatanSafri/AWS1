@@ -20,12 +20,6 @@ import services.sqsService;
 
 public class localApp {
 	
-	static ec2Service ec2 = new ec2Service();
-	static sqsService sqs = new sqsService();
-	static s3Service s3 = new s3Service();
-	static sqsJmsService sqsJms;
-	static final String managerQueueName = "MatanAndShirQueueManager";
-	//static final String localAppQueueName = "MatanAndShirQueueLocalApp";
 	static final Integer n = 10;
 	public static void main(String[] args)  {
 		
@@ -36,17 +30,15 @@ public class localApp {
 		
 		// Running the manager if not active 
 		try {
-			
-			sqsJms = new sqsJmsService();
+				
 			// create the manager queue 
-			sqsJms.createQueue(managerQueueName);
+			sqsJmsService.getInstance().createQueue(constants.managerQueueName);
 			
 			activateManager();
 			// create a queue and a listener for the current localApplication
 			String localAppId = UUID.randomUUID().toString();
-			sqsJms = new sqsJmsService();
-			sqsJms.createQueue(localAppId);
-			sqsJms.getMessagesAsync(localAppId, (message) -> {
+			sqsJmsService.getInstance().createQueue(localAppId);
+			sqsJmsService.getInstance().getMessagesAsync(localAppId, (message) -> {
 				// getting the path to the ready file on s3
 				try {
 					String path = ((TextMessage)message).getText();
@@ -54,12 +46,12 @@ public class localApp {
 					if (((TextMessage)message).getStringProperty("localAppId") != localAppId)
 						return;
 						
-					InputStream fileStream = s3.getFile(path);
+					InputStream fileStream = s3Service.getInstance().getFile(path);
 					saveFile(fileStream,outputFileName);
 					
 					// delete the queue 
-					sqs.deleteQueue(sqs.getUrlByName(localAppId));
-					sqsJms.closeConnection();
+					sqsService.getInstance().deleteQueue(sqsService.getInstance().getUrlByName(localAppId));
+					sqsJmsService.getInstance().closeConnection();
 					return;
 					
 				} catch (JMSException e) {
@@ -72,18 +64,18 @@ public class localApp {
 			});
 
 			// upload the file to s3 
-			String path = s3.saveFile(inputFileName);
+			String path = s3Service.getInstance().saveFile(inputFileName);
 			Map<String,String> properties = new HashMap<String,String>();
 			properties.put("header", "new task");
 			properties.put("localAppId", localAppId);
 			properties.put("n", Integer.toString(n) );
-			sqsJms.sendMessage(managerQueueName, path,properties);
+			sqsJmsService.getInstance().sendMessage(constants.managerQueueName, path,properties);
 			
 			// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
 			if ((args.length == 4 && args[4] == "terminate"))
 			{
 				properties.put("header", "terminate");
-				sqsJms.sendMessage(managerQueueName, "",properties);
+				sqsJmsService.getInstance().sendMessage(constants.managerQueueName, "",properties);
 			}
 		} catch (JMSException e1) {
 			// TODO Auto-generated catch block
@@ -94,17 +86,17 @@ public class localApp {
 	private static void activateManager() throws JMSException
 	{
 		
-		Iterable<Instance> instances = ec2.getInstancesByTag("type", "manager");
+		Iterable<Instance> instances = ec2Service.getInstance().getInstancesByTag("type", "manager");
 		// run the manager if needed
 		if (instances.iterator().hasNext())
 		{
 			Instance instance= instances.iterator().next();
-			if(!ec2.isRunning(instance))
+			if(!ec2Service.getInstance().isRunning(instance))
 			{
-				if (ec2.isTerminate(instance))
+				if (ec2Service.getInstance().isTerminate(instance))
 					createManagerInstance();
 				else
-					ec2.runInstance(instance.getInstanceId());
+					ec2Service.getInstance().runInstance(instance.getInstanceId());
 			}
 		}
 		// create the manager instance
@@ -122,8 +114,9 @@ public class localApp {
 	
 	private static void createManagerInstance()
 	{
-		String managerInstanceId = ec2.createAndRunInstance("ec2AdminRole",ec2.runJarOnEc2Script("manager"));
-		ec2.createTagsToInstance(managerInstanceId, "type", "manager");
+		String managerInstanceId = ec2Service.getInstance().createAndRunInstance(constants.adminRoleName,
+				ec2Service.getInstance().runJarOnEc2Script("manager"));
+		ec2Service.getInstance().createTagsToInstance(managerInstanceId, "type", "manager");
 	}
 }
 

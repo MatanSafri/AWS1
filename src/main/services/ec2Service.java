@@ -26,9 +26,17 @@ import com.amazonaws.util.Base64;
 
 public class ec2Service {
 	
+	private static class ec2ServiceHelper{
+		 private static final ec2Service INSTANCE = new ec2Service();
+	}
+	
+	public static ec2Service getInstance(){
+        return ec2ServiceHelper.INSTANCE;
+    }
+	
 	private AmazonEC2 amazonEc2;
 	
-	public ec2Service()
+	private ec2Service()
 	{
 		AWSCredentials cred =  new ProfileCredentialsProvider().getCredentials();
 		if (cred == null)
