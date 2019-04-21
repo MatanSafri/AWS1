@@ -22,6 +22,7 @@ import javax.jms.TextMessage;
 
 import com.amazonaws.services.ec2.model.Instance;
 
+import javafx.util.Pair;
 import services.ec2Service;
 import services.s3Service;
 import services.sqsJmsService;
@@ -37,7 +38,8 @@ public class manager {
 	static final String managerQueueName = "MatanAndShirQueueManager";
 	
 	static ConcurrentHashMap<String,AtomicInteger> applicationTasks = new ConcurrentHashMap<String, AtomicInteger>();
-	static ConcurrentHashMap<String,File> applicationFiles = new ConcurrentHashMap<String, File>();
+	static ConcurrentHashMap<String,Pair<Pair<File,FileWriter>,BufferedWriter>> applicationFiles = 
+			new ConcurrentHashMap<String,Pair<Pair<File,FileWriter>,BufferedWriter>>();
 	static int activeWorkersNum;
 	static  boolean terminate = false;
 	static final int maxWorkers = 19;
@@ -45,7 +47,6 @@ public class manager {
 	public static void main(String[] args)  {
 		
 		try {
-			
 			ExecutorService threadpool = Executors.newFixedThreadPool(8);
 			sqsJms = new sqsJmsService();
 			// get active workers
@@ -152,16 +153,18 @@ public class manager {
 	
 	private static void updateOutputFile(String localAppId,String finishedTask) throws IOException
 	{    
-	    File outputFile = applicationFiles.get(localAppId);
+		BufferedWriter bw = applicationFiles.get(localAppId).getValue();
 	    
 	    // only one thread of the application can write to the output file in the same time 
-	    synchronized (outputFile) {
-		    try(FileWriter fw = new FileWriter(outputFile);
-		    	    BufferedWriter bw = new BufferedWriter(fw);
-		    	    PrintWriter out = new PrintWriter(bw))
-	    	{
-	    	    out.println(finishedTask);
-	    	} 
+	    synchronized (bw) {
+//		    try(FileWriter fw = new FileWriter(outputFile);
+//		    	    BufferedWriter bw = new BufferedWriter(fw);
+//		    	    PrintWriter out = new PrintWriter(bw))
+//	    	{
+//		    
+//	    	    out.println(finishedTask);
+//	    	} 
+	    	bw.write(finishedTask);
 	    }
 	}
 	    //outputFile.createNewFile(); // if file already exists will do nothing 
@@ -171,10 +174,17 @@ public class manager {
 		// create the output file if not exists  
 	    if (!applicationFiles.containsKey(localAppId))
 	    {
+	     	 
+	    	 // create the buffer writer - it is more efficient to keep one writer open because 
+	    	 // the writing is done frequently 
 	    	 String fileName =  UUID.randomUUID().toString();
 	    	 File outputFile = new File(fileName);
-	    	 applicationFiles.put(localAppId, outputFile);
-	    	 
+	    	 FileWriter fw = new FileWriter(outputFile);
+	    	 BufferedWriter bw = new BufferedWriter(fw);  
+	    	 	     	 
+	    	 applicationFiles.put(localAppId, 
+	    			 new Pair<Pair<File, FileWriter>, BufferedWriter>
+	    	 (new Pair<File, FileWriter>(outputFile, fw), bw));
 	    }
 	    updateOutputFile(localAppId,input);
 	    
@@ -187,11 +197,16 @@ public class manager {
 			properties.put("header", "done task");
 			properties.put("localAppId",localAppId);
 			
+			Pair<Pair<File, FileWriter>,BufferedWriter> fileUtils = applicationFiles.get(localAppId);
 			// Save the output file in s3 
-			String fileLocation = s3.saveFile(applicationFiles.get(localAppId));
+			String fileLocation = s3.saveFile(fileUtils.getKey().getKey());
 			
 	    	// Sending message notifying the local app that task is finished
 	    	sqsJms.sendMessage(localAppId, fileLocation, properties);
+	    	
+	    	// close the buffer writer
+	    	fileUtils.getValue().close();
+	    	fileUtils.getKey().getValue().close();
 	    	
 	    	applicationFiles.remove(localAppId);
 	    }
