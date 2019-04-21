@@ -1,26 +1,13 @@
-import java.io.BufferedReader;
-import java.io.Console;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.lang.Object;
 import java.net.MalformedURLException;
 import java.net.URL;
-
-import javax.imageio.ImageWriteParam;
-import javax.imageio.spi.ServiceRegistry.Filter;
-
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.util.PDFImageWriter;
 import org.apache.pdfbox.util.PDFText2HTML;
 import org.apache.pdfbox.util.PDFTextStripper;
-
-
-import javafx.scene.image.WritableImage;
-
 
 public class PDFfunc{
 		
