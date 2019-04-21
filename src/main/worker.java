@@ -7,15 +7,9 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
 import javax.jms.JMSException;
-import javax.jms.TextMessage;
-
 import com.amazonaws.services.sqs.model.Message;
-
-import services.ec2Service;
 import services.s3Service;
 import services.sqsJmsService;
 import services.sqsService;
