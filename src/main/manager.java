@@ -38,20 +38,47 @@ public class manager {
 		
 		try {
 			ExecutorService threadpool = Executors.newFixedThreadPool(8);
-			// get active workers
-			activeWorkersNum = getActiveWorkers().size();
 			
+			// get active workers //- we do it every new task to check node down
+			activeWorkersNum = getActiveWorkers().size();
+					
 			// create the workers queue if not exists 
 			sqsJmsService.getInstance().createQueue(constants.workersQueueName);
 			
 			sqsJmsService.getInstance().getMessagesAsync(constants.managerQueueName, (message)->{
+				
 			// handle message in a different thread 
 				threadpool.execute(() ->{	
 				// read the file key in s3 from message and handle the file
-				handleMessage(message);
+				try {
+					handleMessage(message);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 			);
 			});
+			
+			// create thread which check if no worker has been down 
+			new Thread(() -> {
+				while (true)
+				{
+					for(int i= 0; i< activeWorkersNum - getActiveWorkers().size();i++)
+						// create and start worker instance
+		            	ec2Service.getInstance().createTagsToInstance(ec2Service.getInstance().createAndRunInstance(constants.adminRoleName,
+		            			ec2Service.getInstance().runJarOnEc2Script("worker")), "type", "worker");
+							
+					try {
+						Thread.sleep(5000);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+			).run();
+		
 			
 			
 			// for the first time as long as there are messages get them sync
@@ -62,7 +89,12 @@ public class manager {
 				if (message != null)
 				{
 					threadpool.execute(() ->{
-					handleMessage(message);});
+					try {
+						handleMessage(message);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}});
 				}
 				else 
 				{
@@ -81,7 +113,7 @@ public class manager {
 		
 	}
 	
-	private static void handleMessage(Message message)
+	private static void handleMessage(Message message) throws InterruptedException
 	{
 		try {
 			TextMessage textMessage = ((TextMessage)message);
@@ -99,20 +131,30 @@ public class manager {
 			  case "done PDF task": 
 			    handleEndTask(data, localAppId);   	
 			    
+			    
 			    // terminate the manager if terminate requested and no more tasks left
 			    if (terminate && applicationTasks.size() == 0)
 			    {
-			    	sqsJmsService.getInstance().closeConnection();
-			    	String managerInstanceId = getManagerInstanceId();
-			    	
-			    	// terminate the workers 
-			    	ec2Service.getInstance().terminateInstances(getActiveWorkers().stream().map(instance -> 
-			    		instance.getInstanceId()
-			    	).collect(Collectors.toList()));
-			    	
-			    	if (managerInstanceId != null)
-			    		ec2Service.getInstance().terminateInstance(managerInstanceId);
-			    	return;
+			    	// sync to prevent creation of more workers while terminating
+			    	synchronized (applicationTasks) {
+				    	sqsJmsService.getInstance().closeConnection();
+				    	String managerInstanceId = getManagerInstanceId();
+				    	
+				    	// terminate the workers 
+				    	ec2Service.getInstance().terminateInstances(getActiveWorkers().stream().map(instance -> 
+				    		instance.getInstanceId()
+				    	).collect(Collectors.toList()));
+				    	
+				    	
+				    	activeWorkersNum = 0;
+				    	
+				    	if (managerInstanceId != null)
+				    		ec2Service.getInstance().terminateInstance(managerInstanceId);
+				    	
+				    	// sleep no need for any other action wait about 10 sec until the instance is closed 
+				    	Thread.sleep(10000);
+				    	return;
+			    	}
 			    }
 			    break;
 			  case "terminate":

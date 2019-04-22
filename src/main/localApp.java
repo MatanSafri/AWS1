@@ -49,6 +49,14 @@ public class localApp {
 					InputStream fileStream = s3Service.getInstance().getFile(path);
 					saveFile(fileStream,outputFileName);
 					
+					// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
+					if ((args.length == 4 && args[4] == "terminate"))
+					{
+						Map<String,String> properties = new HashMap<String,String>();
+						properties.put("header", "terminate");
+						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, "",properties);
+					}
+					
 					// delete the queue 
 					sqsService.getInstance().deleteQueue(sqsService.getInstance().getUrlByName(localAppId));
 					sqsJmsService.getInstance().closeConnection();
@@ -71,12 +79,7 @@ public class localApp {
 			properties.put("n", Integer.toString(n) );
 			sqsJmsService.getInstance().sendMessage(constants.managerQueueName, path,properties);
 			
-			// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
-			if ((args.length == 4 && args[4] == "terminate"))
-			{
-				properties.put("header", "terminate");
-				sqsJmsService.getInstance().sendMessage(constants.managerQueueName, "",properties);
-			}
+			
 		} catch (JMSException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
