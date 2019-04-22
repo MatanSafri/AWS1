@@ -122,11 +122,13 @@ public class manager {
 			
 			switch(((TextMessage)message).getStringProperty("header")) {
 			  case "new task":
+				  synchronized (localAppId) {
 				  	// only if terminate not requested 
 				  	if (!terminate)
 						// download the file from s3 and handle 
 						handleNewFile(s3Service.getInstance().getFile(data),
 								localAppId,Integer.parseInt(textMessage.getStringProperty("n")));
+				  }
 			    break;
 			  case "done PDF task": 
 			    handleEndTask(data, localAppId);   	
@@ -158,7 +160,10 @@ public class manager {
 			    }
 			    break;
 			  case "terminate":
-				  terminate = true;
+				  synchronized (localAppId) {
+					  terminate = true;
+				}
+				 
 				  break;
 			  default:
 			    // code block
