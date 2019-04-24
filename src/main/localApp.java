@@ -20,24 +20,14 @@ import services.sqsService;
 
 public class localApp {
 	
-<<<<<<< HEAD
-	static ec2Service ec2 = new ec2Service();
-	static sqsService sqs = new sqsService();
-	static s3Service s3 = new s3Service();
-	static sqsJmsService sqsJms;
-	static final String managerQueueName = "MatanAndShirQueueManager";
-	//static final String localAppQueueName = "MatanAndShirQueueLocalApp";
-	//static final Integer n = 10;
-=======
 	static final Integer n = 10;
->>>>>>> branch 'master' of https://github.com/MatanSafri/AWS1
 	public static void main(String[] args)  {
 		
-		System.out.println(args[0]+ " " + args[1]+ " " +args[2]);
 		// get the args
-		//String inputFileName = "input.txt"; //= args[0];
-		//String outputFileName ="bala.txt"; //= args[1];
-		//int n = 10; //= Integer.parseInt(args[2]);				
+		String inputFileName = "README.md"; //= args[0];
+		String outputFileName ="bala.txt"; //= args[1];
+		int n = 10; //= Integer.parseInt(args[2]);				
+		
 		// Running the manager if not active 
 		try {
 				
@@ -56,14 +46,8 @@ public class localApp {
 					if (((TextMessage)message).getStringProperty("localAppId") != localAppId)
 						return;
 						
-<<<<<<< HEAD
-					InputStream fileStream = s3.getFile(path);
-					//saveFile(fileStream,outputFileName);
-					saveFile(fileStream,args[1]);
-=======
 					InputStream fileStream = s3Service.getInstance().getFile(path);
 					saveFile(fileStream,outputFileName);
->>>>>>> branch 'master' of https://github.com/MatanSafri/AWS1
 					
 					// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
 					if ((args.length == 4 && args[4] == "terminate"))
@@ -88,35 +72,14 @@ public class localApp {
 			});
 
 			// upload the file to s3 
-<<<<<<< HEAD
-			//String path = s3.saveFile(inputFileName);
-			String path = s3.saveFile(args[0]);
-=======
 			String path = s3Service.getInstance().saveFile(inputFileName);
->>>>>>> branch 'master' of https://github.com/MatanSafri/AWS1
 			Map<String,String> properties = new HashMap<String,String>();
 			properties.put("header", "new task");
 			properties.put("localAppId", localAppId);
-<<<<<<< HEAD
-			//properties.put("n", Integer.toString(n) );
-			properties.put("n", args[2] );
-			sqsJms.sendMessage(managerQueueName, path,properties);
-=======
 			properties.put("n", Integer.toString(n) );
 			sqsJmsService.getInstance().sendMessage(constants.managerQueueName, path,properties);
->>>>>>> branch 'master' of https://github.com/MatanSafri/AWS1
 			
-<<<<<<< HEAD
-			// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
-			if ((args.length == 4 && args[3] == "terminate"))
-			{
-				System.out.println("terminate");
-				properties.put("header", "terminate");
-				sqsJms.sendMessage(managerQueueName, "",properties);
-			}
-=======
 			
->>>>>>> branch 'master' of https://github.com/MatanSafri/AWS1
 		} catch (JMSException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -159,5 +122,3 @@ public class localApp {
 		ec2Service.getInstance().createTagsToInstance(managerInstanceId, "type", "manager");
 	}
 }
-
-
