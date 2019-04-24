@@ -23,7 +23,16 @@ public class sqsJmsService {
 	
 	private SQSConnection connection;
 	
-	public sqsJmsService() throws JMSException
+	private static class sqsJmsServiceHelper{
+		 private static final sqsJmsService INSTANCE = new sqsJmsService();
+	}
+	
+	public static sqsJmsService getInstance(){
+       return sqsJmsServiceHelper.INSTANCE;
+   }
+	
+	
+	private sqsJmsService()
 	{
 
 		AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
@@ -34,7 +43,12 @@ public class sqsJmsService {
 		        );
 		 
 
-		connection = connectionFactory.createConnection();
+		try {
+			connection = connectionFactory.createConnection();
+		} catch (JMSException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 	
 	}

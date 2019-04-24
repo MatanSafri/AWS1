@@ -20,7 +20,15 @@ public class s3Service implements IfileSystem {
 	
 	final String bucketName = "ass1filesbucket";
 	
-	public s3Service()
+	private static class s3ServiceHelper{
+		 private static final s3Service INSTANCE = new s3Service();
+	}
+	
+	public static s3Service getInstance(){
+        return s3ServiceHelper.INSTANCE;
+    }
+	
+	private s3Service()
 	{
 		 AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
     	 amazonS3 = AmazonS3Client.builder()

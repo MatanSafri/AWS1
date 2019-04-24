@@ -16,25 +16,10 @@ import services.sqsService;
 
 public class worker {
 	
-	static sqsJmsService sqsJms ;
-	//static ec2Service ec2 = new ec2Service();
-	static s3Service s3 = new s3Service();
-	static sqsService sqs = new sqsService();
 	static PDFfunc pdf_handler = new PDFfunc();
-	static final String workersQueueName = "MatanAndShirQueueWorkers";
-	static final String managerQueueName = "MatanAndShirQueueManager";
-	static final int n = 10;
-	
-
 	public static void main(String[] args)  {
-		try {
-			sqsJms = new sqsJmsService();
-		} catch (JMSException e2) {
-			// TODO Auto-generated catch block
-			e2.printStackTrace();
-		}
 		while (true){
-			List<Message> messages = sqs.getMessages(workersQueueName);
+			List<Message> messages = sqsService.getInstance().getMessages(constants.workersQueueName);
 			if(!messages.isEmpty()) //in case message recieved
 			{
 				Message message = messages.get(0);
@@ -46,7 +31,7 @@ public class worker {
 				ScheduledFuture<?> scheduledFuture = exec.scheduleAtFixedRate(new Runnable() {
 				  @Override
 				  public void run() {
-				    sqs.changeVisibility(workersQueueName, message, 30);
+					  sqsService.getInstance().changeVisibility(constants.workersQueueName, message, 30);
 				  }
 				}, 0, 25, TimeUnit.SECONDS); // extend the visibility time
 				
@@ -57,30 +42,30 @@ public class worker {
 					try{
 						File new_file = pdf_handler.handle(msg_prop[0], msg_prop[1]); //o-operation, 1-input URL
 						
-						s3.saveFile(new_file.getAbsolutePath()); 
+						s3Service.getInstance().saveFile(new_file.getAbsolutePath()); 
 							
 						Map<String,String> properties = new HashMap<String,String>();
 						properties.put("header", "done PDF task");
 						// send message back to the manager
 						//TODO: ensure the output URL
-						sqsJms.sendMessage(managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " https://s3.us-east-2.amazonaws.com/matanandshirbucket/ass1/"+ new_file.getName() ,properties); 
+						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " https://s3.us-east-2.amazonaws.com/matanandshirbucket/ass1/"+ new_file.getName() ,properties); 
 						//finished handle this msg, delete it from queue
-						sqs.deleteMessage(workersQueueName, message);
+						sqsService.getInstance().deleteMessage(constants.workersQueueName, message);
 						System.out.print("msg deleted");
 						scheduledFuture.cancel(false);
 							
 					} catch (MalformedURLException e){
 						Map<String,String> properties = new HashMap<String,String>();
 						properties.put("header", "done PDF task");
-						sqsJms.sendMessage(managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " MalformedURLExeption occured" ,properties); 
-						sqs.deleteMessage(workersQueueName, message); //this is awrong URL, no need to check again
+						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " MalformedURLExeption occured" ,properties); 
+						sqsService.getInstance().deleteMessage(constants.workersQueueName, message); //this is awrong URL, no need to check again
 						scheduledFuture.cancel(false);
 					}
 					catch (IOException e){ 
 						Map<String,String> properties = new HashMap<String,String>();
 						properties.put("header", "done PDF task");
-						sqsJms.sendMessage(managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " IOException occured" ,properties); 
-						sqs.deleteMessage(workersQueueName, message); 
+						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " IOException occured" ,properties); 
+						sqsService.getInstance().deleteMessage(constants.workersQueueName, message); 
 						scheduledFuture.cancel(false);
 						//sqs.changeVisibility(workersQueueName, message, 0); //if we want the msg to stay in queue and to be visible again
 					}

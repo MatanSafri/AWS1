@@ -25,17 +25,8 @@ import javafx.util.Pair;
 import services.ec2Service;
 import services.s3Service;
 import services.sqsJmsService;
-import services.sqsService;
 
 public class manager {
-	
-	static sqsJmsService sqsJms;
-	static ec2Service ec2 = new ec2Service();
-	static s3Service s3 = new s3Service();
-	static sqsService sqs = new sqsService();
-	static final String workersQueueName = "MatanAndShirQueueWorkers";
-	static final String managerQueueName = "MatanAndShirQueueManager";
-	
 	static ConcurrentHashMap<String,AtomicInteger> applicationTasks = new ConcurrentHashMap<String, AtomicInteger>();
 	static ConcurrentHashMap<String,Pair<Pair<File,FileWriter>,BufferedWriter>> applicationFiles = 
 			new ConcurrentHashMap<String,Pair<Pair<File,FileWriter>,BufferedWriter>>();
@@ -47,34 +38,64 @@ public class manager {
 		
 		try {
 			ExecutorService threadpool = Executors.newFixedThreadPool(8);
-			sqsJms = new sqsJmsService();
-			// get active workers
+			
+			// get active workers //- we do it every new task to check node down
 			activeWorkersNum = getActiveWorkers().size();
-			
+					
 			// create the workers queue if not exists 
-			sqsJms.createQueue(workersQueueName);
+			sqsJmsService.getInstance().createQueue(constants.workersQueueName);
 			
-			sqsJms = new sqsJmsService();	
-			sqsJms.getMessagesAsync(managerQueueName, (message)->{
+			sqsJmsService.getInstance().getMessagesAsync(constants.managerQueueName, (message)->{
+				
 			// handle message in a different thread 
 				threadpool.execute(() ->{	
 				// read the file key in s3 from message and handle the file
-				handleMessage(message);
+				try {
+					handleMessage(message);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 			);
 			});
+			
+			// create thread which check if no worker has been down 
+			new Thread(() -> {
+				while (true)
+				{
+					for(int i= 0; i< activeWorkersNum - getActiveWorkers().size();i++)
+						// create and start worker instance
+		            	ec2Service.getInstance().createTagsToInstance(ec2Service.getInstance().createAndRunInstance(constants.adminRoleName,
+		            			ec2Service.getInstance().runJarOnEc2Script("worker")), "type", "worker");
+							
+					try {
+						Thread.sleep(5000);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+			).run();
+		
 			
 			
 			// for the first time as long as there are messages get them sync
 			do {
 				// first time get the messages sync
-				final Message message = (sqsJms.getMessagesSync(managerQueueName));
+				final Message message = (sqsJmsService.getInstance().getMessagesSync(constants.managerQueueName));
 				
 				if (message != null)
 				{
 					System.out.println("manager got msg");
 					threadpool.execute(() ->{
-					handleMessage(message);});
+					try {
+						handleMessage(message);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}});
 				}
 				else 
 				{
@@ -93,7 +114,7 @@ public class manager {
 		
 	}
 	
-	private static void handleMessage(Message message)
+	private static void handleMessage(Message message) throws InterruptedException
 	{
 		try {
 			TextMessage textMessage = ((TextMessage)message);
@@ -102,32 +123,48 @@ public class manager {
 			
 			switch(((TextMessage)message).getStringProperty("header")) {
 			  case "new task":
+				  synchronized (localAppId) {
 				  	// only if terminate not requested 
 				  	if (!terminate)
 						// download the file from s3 and handle 
-						handleNewFile(s3.getFile(data),localAppId,Integer.parseInt(textMessage.getStringProperty("n")));
+						handleNewFile(s3Service.getInstance().getFile(data),
+								localAppId,Integer.parseInt(textMessage.getStringProperty("n")));
+				  }
 			    break;
 			  case "done PDF task": 
 			    handleEndTask(data, localAppId);   	
 			    
+			    
 			    // terminate the manager if terminate requested and no more tasks left
 			    if (terminate && applicationTasks.size() == 0)
 			    {
-			    	sqsJms.closeConnection();
-			    	String managerInstanceId = getManagerInstanceId();
-			    	
-			    	// terminate the workers 
-			    	ec2.terminateInstances(getActiveWorkers().stream().map(instance -> 
-			    		instance.getInstanceId()
-			    	).collect(Collectors.toList()));
-			    	
-			    	if (managerInstanceId != null)
-			    		ec2.terminateInstance(managerInstanceId);
-			    	return;
+			    	// sync to prevent creation of more workers while terminating
+			    	synchronized (applicationTasks) {
+				    	sqsJmsService.getInstance().closeConnection();
+				    	String managerInstanceId = getManagerInstanceId();
+				    	
+				    	// terminate the workers 
+				    	ec2Service.getInstance().terminateInstances(getActiveWorkers().stream().map(instance -> 
+				    		instance.getInstanceId()
+				    	).collect(Collectors.toList()));
+				    	
+				    	
+				    	activeWorkersNum = 0;
+				    	
+				    	if (managerInstanceId != null)
+				    		ec2Service.getInstance().terminateInstance(managerInstanceId);
+				    	
+				    	// sleep no need for any other action wait about 10 sec until the instance is closed 
+				    	Thread.sleep(10000);
+				    	return;
+			    	}
 			    }
 			    break;
 			  case "terminate":
-				  terminate = true;
+				  synchronized (localAppId) {
+					  terminate = true;
+				}
+				 
 				  break;
 			  default:
 			    // code block
@@ -145,7 +182,7 @@ public class manager {
 	
 	private static String getManagerInstanceId()
 	{
-		Iterable<Instance> instances = ec2.getInstancesByTag("type", "manager");
+		Iterable<Instance> instances = ec2Service.getInstance().getInstancesByTag("type", "manager");
 		if (instances.iterator().hasNext())
 			return instances.iterator().next().getInstanceId();
 		return null;
@@ -199,10 +236,10 @@ public class manager {
 			
 			Pair<Pair<File, FileWriter>,BufferedWriter> fileUtils = applicationFiles.get(localAppId);
 			// Save the output file in s3 
-			String fileLocation = s3.saveFile(fileUtils.getKey().getKey());
+			String fileLocation = s3Service.getInstance().saveFile(fileUtils.getKey().getKey());
 			
 	    	// Sending message notifying the local app that task is finished
-	    	sqsJms.sendMessage(localAppId, fileLocation, properties);
+			sqsJmsService.getInstance().sendMessage(localAppId, fileLocation, properties);
 	    	
 	    	// close the buffer writer
 	    	fileUtils.getValue().close();   
@@ -229,7 +266,8 @@ public class manager {
 	            if (lines - (activeWorkersNum * n) > 0 && activeWorkersNum <= maxWorkers)
 	            {
 	            	// create and start worker instance
-	    			ec2.createTagsToInstance(ec2.createAndRunInstance("ec2AdminRole",ec2.runJarOnEc2Script("worker")), "type", "worker");
+	            	ec2Service.getInstance().createTagsToInstance(ec2Service.getInstance().createAndRunInstance(constants.adminRoleName,
+	            			ec2Service.getInstance().runJarOnEc2Script("worker")), "type", "worker");
 	    			activeWorkersNum++;
 	            }
             }
@@ -238,7 +276,7 @@ public class manager {
             Map<String,String> properties = new HashMap<String,String>();
 			properties.put("header", "new PDF task");
 			properties.put("localAppId", localAppId);
-            sqsJms.sendMessage(workersQueueName, line,properties);
+			sqsJmsService.getInstance().sendMessage(constants.workersQueueName, line,properties);
         }
         
         applicationTasks.put(localAppId, new AtomicInteger(lines));
@@ -262,7 +300,8 @@ public class manager {
 	
 	private static Collection<Instance> getActiveWorkers()
 	{
-		return ec2.getInstancesByTag("type", "worker");
+		return ec2Service.getInstance().getInstancesByTag("type", "worker")
+				.stream().filter(worker -> ec2Service.getInstance().isRunning(worker)).collect(Collectors.toList());
 	}
 
 }

@@ -16,11 +16,20 @@ import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.services.sqs.model.SendMessageRequest;
 
+
 public class sqsService {
 	
 	private AmazonSQS sqs;
 	
-	public sqsService()
+	private static class sqsServiceHelper{
+		 private static final sqsService INSTANCE = new sqsService();
+	}
+	
+	public static sqsService getInstance(){
+      return sqsServiceHelper.INSTANCE;
+  }
+	
+	private sqsService()
 	{
 		AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
         sqs = AmazonSQSClientBuilder.standard()
