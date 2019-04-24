@@ -26,14 +26,14 @@ public class localApp {
 	static sqsJmsService sqsJms;
 	static final String managerQueueName = "MatanAndShirQueueManager";
 	//static final String localAppQueueName = "MatanAndShirQueueLocalApp";
-	static final Integer n = 10;
+	//static final Integer n = 10;
 	public static void main(String[] args)  {
 		
+		System.out.println(args[0]+ " " + args[1]+ " " +args[2]);
 		// get the args
-		String inputFileName = "README.md"; //= args[0];
-		String outputFileName ="bala.txt"; //= args[1];
-		int n = 10; //= Integer.parseInt(args[2]);				
-		
+		//String inputFileName = "input.txt"; //= args[0];
+		//String outputFileName ="bala.txt"; //= args[1];
+		//int n = 10; //= Integer.parseInt(args[2]);				
 		// Running the manager if not active 
 		try {
 			
@@ -55,7 +55,8 @@ public class localApp {
 						return;
 						
 					InputStream fileStream = s3.getFile(path);
-					saveFile(fileStream,outputFileName);
+					//saveFile(fileStream,outputFileName);
+					saveFile(fileStream,args[1]);
 					
 					// delete the queue 
 					sqs.deleteQueue(sqs.getUrlByName(localAppId));
@@ -72,16 +73,19 @@ public class localApp {
 			});
 
 			// upload the file to s3 
-			String path = s3.saveFile(inputFileName);
+			//String path = s3.saveFile(inputFileName);
+			String path = s3.saveFile(args[0]);
 			Map<String,String> properties = new HashMap<String,String>();
 			properties.put("header", "new task");
 			properties.put("localAppId", localAppId);
-			properties.put("n", Integer.toString(n) );
+			//properties.put("n", Integer.toString(n) );
+			properties.put("n", args[2] );
 			sqsJms.sendMessage(managerQueueName, path,properties);
 			
 			// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
-			if ((args.length == 4 && args[4] == "terminate"))
+			if ((args.length == 4 && args[3] == "terminate"))
 			{
+				System.out.println("terminate");
 				properties.put("header", "terminate");
 				sqsJms.sendMessage(managerQueueName, "",properties);
 			}
