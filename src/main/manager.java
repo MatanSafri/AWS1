@@ -72,6 +72,7 @@ public class manager {
 				
 				if (message != null)
 				{
+					System.out.println("manager got msg");
 					threadpool.execute(() ->{
 					handleMessage(message);});
 				}
@@ -204,7 +205,7 @@ public class manager {
 	    	sqsJms.sendMessage(localAppId, fileLocation, properties);
 	    	
 	    	// close the buffer writer
-	    	fileUtils.getValue().close();
+	    	fileUtils.getValue().close();   
 	    	fileUtils.getKey().getValue().close();
 	    	
 	    	applicationFiles.remove(localAppId);
