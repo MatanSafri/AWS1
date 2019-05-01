@@ -20,22 +20,29 @@ import javax.jms.Message;
 import javax.jms.TextMessage;
 
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.sqs.model.MessageAttributeValue;
 
 import javafx.util.Pair;
 import services.ec2Service;
 import services.s3Service;
 import services.sqsJmsService;
+import services.sqsService;
 
 public class manager {
-	static ConcurrentHashMap<String,AtomicInteger> applicationTasks = new ConcurrentHashMap<String, AtomicInteger>();
-	static ConcurrentHashMap<String,Pair<Pair<File,FileWriter>,BufferedWriter>> applicationFiles = 
-			new ConcurrentHashMap<String,Pair<Pair<File,FileWriter>,BufferedWriter>>();
+	
+	static ConcurrentHashMap<String,AtomicInteger> applicationTasks = 
+			new ConcurrentHashMap<String, AtomicInteger>();
+	//static ConcurrentHashMap<String,Pair<Pair<File,FileWriter>,BufferedWriter>> applicationFiles = 
+		//	new ConcurrentHashMap<String,Pair<Pair<File,FileWriter>,BufferedWriter>>();
+	static ConcurrentHashMap<String,fileProp> applicationFiles = 
+				new ConcurrentHashMap<String,fileProp>();
+
 	static int activeWorkersNum;
 	static  boolean terminate = false;
 	static final int maxWorkers = 19;
 	
 	public static void main(String[] args)  {
-		
+		//applicationTasks.put("12345",new AtomicInteger(1));
 		try {
 			ExecutorService threadpool = Executors.newFixedThreadPool(8);
 			
@@ -46,7 +53,7 @@ public class manager {
 			sqsJmsService.getInstance().createQueue(constants.workersQueueName);
 			
 			sqsJmsService.getInstance().getMessagesAsync(constants.managerQueueName, (message)->{
-				
+
 			// handle message in a different thread 
 				threadpool.execute(() ->{	
 				// read the file key in s3 from message and handle the file
@@ -88,7 +95,6 @@ public class manager {
 				
 				if (message != null)
 				{
-					System.out.println("manager got msg");
 					threadpool.execute(() ->{
 					try {
 						handleMessage(message);
@@ -97,6 +103,7 @@ public class manager {
 						e.printStackTrace();
 					}});
 				}
+				
 				else 
 				{
 					break;
@@ -163,7 +170,32 @@ public class manager {
 			  case "terminate":
 				  synchronized (localAppId) {
 					  terminate = true;
+					  //in case manager got termination and has no more tasks
+					  if (applicationTasks.size() == 0)
+					    {
+					    	// sync to prevent creation of more workers while terminating
+					    	synchronized (applicationTasks) {
+						    	sqsJmsService.getInstance().closeConnection();
+						    	String managerInstanceId = getManagerInstanceId();
+						    	
+						    	// terminate the workers 
+						    	ec2Service.getInstance().terminateInstances(getActiveWorkers().stream().map(instance -> 
+						    		instance.getInstanceId()
+						    	).collect(Collectors.toList()));
+						    	
+						    	
+						    	activeWorkersNum = 0;
+						    	
+						    	if (managerInstanceId != null)
+						    		ec2Service.getInstance().terminateInstance(managerInstanceId);
+						    	
+						    	// sleep no need for any other action wait about 10 sec until the instance is closed 
+						    	Thread.sleep(10000);
+						    	return;
+					    	}
+					    }
 				}
+				       
 				 
 				  break;
 			  default:
@@ -190,8 +222,9 @@ public class manager {
 	
 	private static void updateOutputFile(String localAppId,String finishedTask) throws IOException
 	{    
-		BufferedWriter bw = applicationFiles.get(localAppId).getValue();
-	    
+		//BufferedWriter bw = applicationFiles.get(localAppId).getValue();
+		BufferedWriter bw = applicationFiles.get(localAppId).getBufferedWriter();
+		
 	    // only one thread of the application can write to the output file in the same time 
 	    synchronized (bw) {
 //		    try(FileWriter fw = new FileWriter(outputFile);
@@ -201,7 +234,8 @@ public class manager {
 //		    
 //	    	    out.println(finishedTask);
 //	    	} 
-	    	bw.write(finishedTask);
+	    	
+	    	bw.write(finishedTask+"\n");
 	    }
 	}
 	    //outputFile.createNewFile(); // if file already exists will do nothing 
@@ -211,21 +245,29 @@ public class manager {
 		// create the output file if not exists  
 	    if (!applicationFiles.containsKey(localAppId))
 	    {
-	     	 
+	    	System.out.println("enter applicationFile");
 	    	 // create the buffer writer - it is more efficient to keep one writer open because 
 	    	 // the writing is done frequently 
-	    	 String fileName =  UUID.randomUUID().toString();
+	    	 String fileName =  UUID.randomUUID().toString()+".txt";
+	    	 //System.out.println("the output file name is"+ fileName);
 	    	 File outputFile = new File(fileName);
 	    	 FileWriter fw = new FileWriter(outputFile);
 	    	 BufferedWriter bw = new BufferedWriter(fw);  
 	    	 	     	 
-	    	 applicationFiles.put(localAppId, 
+	    	/* applicationFiles.put(localAppId, 
 	    			 new Pair<Pair<File, FileWriter>, BufferedWriter>
 	    	 (new Pair<File, FileWriter>(outputFile, fw), bw));
+	    	 	    
+	    	 	    */
+	    	 applicationFiles.put(localAppId, new fileProp(outputFile, fw, bw));
 	    }
 	    updateOutputFile(localAppId,input);
+	    //applicationTasks.put(localAppId, new AtomicInteger(1));//TODO:remove - just for debugging   
 	    
 	    // finish local app mission
+	    //System.out.println(applicationTasks.get(localAppId));
+	    
+
 	    if (applicationTasks.get(localAppId).decrementAndGet() == 0)
 	    {
 	    	applicationTasks.remove(localAppId);
@@ -234,16 +276,32 @@ public class manager {
 			properties.put("header", "done task");
 			properties.put("localAppId",localAppId);
 			
-			Pair<Pair<File, FileWriter>,BufferedWriter> fileUtils = applicationFiles.get(localAppId);
-			// Save the output file in s3 
-			String fileLocation = s3Service.getInstance().saveFile(fileUtils.getKey().getKey());
 			
+			
+			//Pair<Pair<File, FileWriter>,BufferedWriter> fileUtils = applicationFiles.get(localAppId);
+			fileProp fileUtils = applicationFiles.get(localAppId);
+			
+			// close the buffer writer before uploading it to S3
+	    	//fileUtils.getValue().close();   
+	    	//fileUtils.getKey().getValue().close();
+			
+	    	fileUtils.getBufferedWriter().close();
+	    	fileUtils.getFileWriter().close();
+
+	    	
+	    	
+	    	
+			// Save the output file in s3 
+			//String fileLocation = s3Service.getInstance().saveFile(fileUtils.getKey().getKey().getAbsolutePath());
+			s3Service.getInstance().saveFile(fileUtils.getFile().getAbsolutePath());
+			String fileLocation = "ass1/"+ fileUtils.getFile().getName();
+			System.out.println("saved");
 	    	// Sending message notifying the local app that task is finished
 			sqsJmsService.getInstance().sendMessage(localAppId, fileLocation, properties);
 	    	
 	    	// close the buffer writer
-	    	fileUtils.getValue().close();   
-	    	fileUtils.getKey().getValue().close();
+	    	//fileUtils.getValue().close();   
+	    	//fileUtils.getKey().getValue().close();
 	    	
 	    	applicationFiles.remove(localAppId);
 	    }
@@ -265,18 +323,34 @@ public class manager {
             {
 	            if (lines - (activeWorkersNum * n) > 0 && activeWorkersNum <= maxWorkers)
 	            {
-	            	// create and start worker instance
-	            	ec2Service.getInstance().createTagsToInstance(ec2Service.getInstance().createAndRunInstance(constants.adminRoleName,
+	            	 //create and start worker instance
+	            	 ec2Service.getInstance().createTagsToInstance(ec2Service.getInstance().createAndRunInstance(constants.adminRoleName,
 	            			ec2Service.getInstance().runJarOnEc2Script("worker")), "type", "worker");
 	    			activeWorkersNum++;
 	            }
             }
             
+            
             // for each line send to workers queue a message
-            Map<String,String> properties = new HashMap<String,String>();
-			properties.put("header", "new PDF task");
-			properties.put("localAppId", localAppId);
+            HashMap<String,MessageAttributeValue> properties = new HashMap<String,MessageAttributeValue>();
+			properties.put("header",new MessageAttributeValue()
+			        .withDataType("String")
+			        .withStringValue("new PDF task") );
+			properties.put("localAppId", new MessageAttributeValue()
+			        .withDataType("String")
+			        .withStringValue(localAppId));
+			
+			sqsService.getInstance().sendMessage(constants.workersQueueName, line,properties);
+
+			
+            /*
+            HashMap<String,String> properties = new HashMap<String,String>();
+			properties.put("header","new PDF task");
+			properties.put("localAppId",localAppId);
+            
+            
 			sqsJmsService.getInstance().sendMessage(constants.workersQueueName, line,properties);
+			*/
         }
         
         applicationTasks.put(localAppId, new AtomicInteger(lines));

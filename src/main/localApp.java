@@ -20,13 +20,15 @@ import services.sqsService;
 
 public class localApp {
 	
-	static final Integer n = 10;
+	private static boolean closeConnection ;
 	public static void main(String[] args)  {
 		
 		// get the args
-		String inputFileName = "README.md"; //= args[0];
-		String outputFileName ="bala.txt"; //= args[1];
-		int n = 10; //= Integer.parseInt(args[2]);				
+		String inputFileName = args[0];
+		String outputFileName = args[1];
+		int n = Integer.parseInt(args[2]);	
+		closeConnection = false;
+		
 		
 		// Running the manager if not active 
 		try {
@@ -37,29 +39,33 @@ public class localApp {
 			activateManager();
 			// create a queue and a listener for the current localApplication
 			String localAppId = UUID.randomUUID().toString();
+			//String localAppId = "12345";
 			sqsJmsService.getInstance().createQueue(localAppId);
+			
 			sqsJmsService.getInstance().getMessagesAsync(localAppId, (message) -> {
+				System.out.println("localapp got msg");
 				// getting the path to the ready file on s3
 				try {
 					String path = ((TextMessage)message).getText();
-					
-					if (((TextMessage)message).getStringProperty("localAppId") != localAppId)
+										
+					if ( !(((TextMessage)message).getStringProperty("localAppId").equals(localAppId)) )
 						return;
 						
 					InputStream fileStream = s3Service.getInstance().getFile(path);
 					saveFile(fileStream,outputFileName);
 					
 					// TODO: Sends a termination message to the Manager if it was supplied as one of its input arguments.
-					if ((args.length == 4 && args[4] == "terminate"))
+					if ((args.length == 4 && args[3].equals("terminate")))
 					{
 						Map<String,String> properties = new HashMap<String,String>();
 						properties.put("header", "terminate");
+						properties.put("localAppId", localAppId);	
 						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, "",properties);
 					}
 					
 					// delete the queue 
 					sqsService.getInstance().deleteQueue(sqsService.getInstance().getUrlByName(localAppId));
-					sqsJmsService.getInstance().closeConnection();
+					closeConnection = true;  //tell the thread to close the connection, it is not possible to close the connection from itself
 					return;
 					
 				} catch (JMSException e) {
@@ -71,17 +77,29 @@ public class localApp {
 				}
 			});
 
+			new Thread(() -> {
+				if(closeConnection)
+					try {
+						sqsJmsService.getInstance().closeConnection();
+						closeConnection =false;
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+			}
+			).run();
+			
 			// upload the file to s3 
-			String path = s3Service.getInstance().saveFile(inputFileName);
+			String path = s3Service.getInstance().saveFile(inputFileName+".txt");
 			Map<String,String> properties = new HashMap<String,String>();
 			properties.put("header", "new task");
 			properties.put("localAppId", localAppId);
 			properties.put("n", Integer.toString(n) );
 			sqsJmsService.getInstance().sendMessage(constants.managerQueueName, path,properties);
 			
-			
 		} catch (JMSException e1) {
 			// TODO Auto-generated catch block
+			System.out.println("exception");
 			e1.printStackTrace();
 		}
 	}
@@ -109,9 +127,9 @@ public class localApp {
 		}
 	}
 
-	private static void saveFile(InputStream inputStream,String fileName) throws IOException {
+	private static void saveFile(InputStream inputStream,String outputfileName) throws IOException {
 		//Path path = Paths.get(System.getProperty("user.dir"));
-		Path path = Paths.get(fileName);
+		Path path = Paths.get(outputfileName+".html");
 		Files.copy(inputStream, path, StandardCopyOption.REPLACE_EXISTING);
 	}
 	

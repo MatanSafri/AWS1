@@ -1,5 +1,6 @@
 package services;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
  
@@ -13,6 +14,7 @@ import com.amazonaws.services.sqs.model.DeleteMessageRequest;
 import com.amazonaws.services.sqs.model.DeleteQueueRequest;
 import com.amazonaws.services.sqs.model.GetQueueAttributesRequest;
 import com.amazonaws.services.sqs.model.Message;
+import com.amazonaws.services.sqs.model.MessageAttributeValue;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.services.sqs.model.SendMessageRequest;
 
@@ -35,9 +37,7 @@ public class sqsService {
         sqs = AmazonSQSClientBuilder.standard()
                 .withCredentials(credentialsProvider)
                 .withRegion("us-east-1")
-                .build();
-  
-        
+                .build();        
 	}
 	
 	public String createQueue(String queueName)
@@ -46,15 +46,19 @@ public class sqsService {
        return  sqs.createQueue(createQueueRequest).getQueueUrl();
 	}
 	
-	public void sendMessage(String queueName,String message)
+	public void sendMessage(String queueName,String message,HashMap<String,MessageAttributeValue> properties)
 	{
-		 sqs.sendMessage(new SendMessageRequest(getUrlByName(queueName), message));
+		final SendMessageRequest sendMessageRequest = new SendMessageRequest();
+		sendMessageRequest.withMessageBody(message);
+		sendMessageRequest.withQueueUrl(getUrlByName(queueName));
+		sendMessageRequest.withMessageAttributes(properties);
+		sqs.sendMessage(sendMessageRequest);
 	}
 	
 	public List<Message> getMessages(String queueName)
 	{
 		ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(getUrlByName(queueName));
-        return sqs.receiveMessage(receiveMessageRequest).getMessages();
+        return sqs.receiveMessage(receiveMessageRequest.withMessageAttributeNames("localAppId")).getMessages();
 	}
 	
 	public void deleteMessage(String queueName,Message message)

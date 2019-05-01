@@ -84,8 +84,9 @@ public class ec2Service {
 	{
 		try {
             // Basic 32-bit Amazon Linux AMI 1.0 (AMI Id:ami-51792c38.)
-            RunInstancesRequest request = new RunInstancesRequest("ami-51792c38", 1, 1).withKeyName("ass1Key");
-            request.setInstanceType(InstanceType.T1Micro.toString());
+            //RunInstancesRequest request = new RunInstancesRequest("ami-51792c38", 1, 1).withKeyName("ass1Key");
+			RunInstancesRequest request = new RunInstancesRequest("ami-0de53d8956e8dcf80", 1, 1).withKeyName("ass1Key");
+            request.setInstanceType(InstanceType.T2Micro.toString());
             
             
             // set the iam role
