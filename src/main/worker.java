@@ -60,7 +60,7 @@ public class worker {
 						properties.put("localAppId", localAppId);
 						// send message back to the manager
 						//TODO: ensure the output URL
-						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " https://s3.us-east-2.amazonaws.com/matanandshirbucket/ass1/"+ new_file.getName() ,properties); 
+						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " https://s3.us-east-2.amazonaws.com/matanandshirbucket/ass1/"+ new_file.getName() + " <br>" ,properties); 
 						//finished handle this msg, delete it from queue
 						sqsService.getInstance().deleteMessage(constants.workersQueueName, message);
 						System.out.print("msg deleted");
@@ -68,19 +68,21 @@ public class worker {
 						allowTimer = false;
 							
 					} catch (MalformedURLException e ){
+						e.printStackTrace();
 						Map<String,String> properties = new HashMap<String,String>();
 						properties.put("header", "done PDF task");
 						properties.put("localAppId", localAppId);
-						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " MalformedURLExeption occured" ,properties); 
+						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " MalformedURLExeption occured" + " <br>" ,properties); 
 						sqsService.getInstance().deleteMessage(constants.workersQueueName, message); //this is awrong URL, no need to check again
 						scheduledFuture.cancel(true);
 						allowTimer = false;
 					}
 					catch (IOException e){ 
+						e.printStackTrace();
 						Map<String,String> properties = new HashMap<String,String>();
 						properties.put("header", "done PDF task");
 						properties.put("localAppId", localAppId);
-						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " IOException occured" ,properties); 
+						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, msg_prop[0]+": "+ msg_prop[1] + " IOException occured"+ " <br>" ,properties); 
 						sqsService.getInstance().deleteMessage(constants.workersQueueName, message); 
 						allowTimer = false;
 						scheduledFuture.cancel(true);
@@ -88,7 +90,7 @@ public class worker {
 					}
 						
 				} catch (JMSException e1) {
-					//TODO: check what to do here			
+					e1.printStackTrace();		
 				}
 			}
 		}

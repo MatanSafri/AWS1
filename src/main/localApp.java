@@ -4,9 +4,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
 import javax.jms.JMSException;
 import javax.jms.TextMessage;
@@ -20,14 +24,14 @@ import services.sqsService;
 
 public class localApp {
 	
-	private static boolean closeConnection ;
 	public static void main(String[] args)  {
 		
 		// get the args
 		String inputFileName = args[0];
 		String outputFileName = args[1];
 		int n = Integer.parseInt(args[2]);	
-		closeConnection = false;
+		//closeConnection = false;
+		CountDownLatch latch = new CountDownLatch(1);
 		
 		
 		// Running the manager if not active 
@@ -60,13 +64,15 @@ public class localApp {
 						Map<String,String> properties = new HashMap<String,String>();
 						properties.put("header", "terminate");
 						properties.put("localAppId", localAppId);	
-						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, "",properties);
+						sqsJmsService.getInstance().sendMessage(constants.managerQueueName, "terminate message",properties);
 					}
 					
+					latch.countDown();
+					
 					// delete the queue 
-					sqsService.getInstance().deleteQueue(sqsService.getInstance().getUrlByName(localAppId));
-					closeConnection = true;  //tell the thread to close the connection, it is not possible to close the connection from itself
-					return;
+					//sqsService.getInstance().deleteQueue(sqsService.getInstance().getUrlByName(localAppId));
+					//closeConnection = true;  //tell the thread to close the connection, it is not possible to close the connection from itself
+					//return;
 					
 				} catch (JMSException e) {
 					// TODO Auto-generated catch block
@@ -77,17 +83,20 @@ public class localApp {
 				}
 			});
 
-			new Thread(() -> {
-				if(closeConnection)
-					try {
-						sqsJmsService.getInstance().closeConnection();
-						closeConnection =false;
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-			}
-			).run();
+//			new Thread(() -> {
+//				if(closeConnection)
+//					try {
+//						sqsJmsService.getInstance().closeConnection();
+//						closeConnection =false;
+//					} catch (Exception e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					}
+//			}
+//			).run();
+			
+			
+		
 			
 			// upload the file to s3 
 			String path = s3Service.getInstance().saveFile(inputFileName+".txt");
@@ -97,10 +106,18 @@ public class localApp {
 			properties.put("n", Integer.toString(n) );
 			sqsJmsService.getInstance().sendMessage(constants.managerQueueName, path,properties);
 			
+			// wait for signal from the message
+			latch.await();
+			sqsJmsService.getInstance().closeConnection();
+			sqsService.getInstance().deleteQueue(sqsService.getInstance().getUrlByName(localAppId));
+			
 		} catch (JMSException e1) {
 			// TODO Auto-generated catch block
 			System.out.println("exception");
 			e1.printStackTrace();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 	
@@ -108,23 +125,31 @@ public class localApp {
 	{
 		
 		Iterable<Instance> instances = ec2Service.getInstance().getInstancesByTag("type", "manager");
-		// run the manager if needed
-		if (instances.iterator().hasNext())
-		{
-			Instance instance= instances.iterator().next();
-			if(!ec2Service.getInstance().isRunning(instance))
-			{
-				if (ec2Service.getInstance().isTerminate(instance))
-					createManagerInstance();
-				else
-					ec2Service.getInstance().runInstance(instance.getInstanceId());
-			}
-		}
-		// create the manager instance
-		else
-		{
+		
+		
+		List<Instance> list = new ArrayList<Instance>();
+		instances.iterator().forEachRemaining(list::add);
+		if (list.stream().allMatch(instance -> !ec2Service.getInstance().isRunning(instance)) || list.size() == 0)
 			createManagerInstance();
-		}
+			
+		
+//		// run the manager if needed
+//		if (instances.iterator().hasNext())
+//		{
+//			Instance instance= instances.iterator().next();
+//			if(!ec2Service.getInstance().isRunning(instance))
+//			{
+//				if (ec2Service.getInstance().isTerminate(instance))
+//					createManagerInstance();
+//				else
+//					ec2Service.getInstance().runInstance(instance.getInstanceId());
+//			}
+//		}
+//		// create the manager instance
+//		else
+//		{
+//			createManagerInstance();
+//		}
 	}
 
 	private static void saveFile(InputStream inputStream,String outputfileName) throws IOException {

@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.UUID;
+
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.util.PDFImageWriter;
 import org.apache.pdfbox.util.PDFText2HTML;
@@ -52,7 +54,7 @@ public class PDFfunc{
 		
 		PDDocument curr_pdf = null;
 			curr_pdf = PDDocument.load(new URL(url)); //extract the pdf file from given URL
-			String file_name = getPDFname(url);	
+			String file_name = getPDFname(url) + UUID.randomUUID().toString();	
 			System.out.println("passed url");
 				switch(operation){
 					case "ToImage":
